@@ -1,0 +1,69 @@
+# ---------- .NET ----------
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+project.lock.json
+artifacts/
+TestResults/
+*.coverage
+*.trx
+coverage*.json
+coverage*.xml
+coverage*.info
+.vs/
+*.db
+*.mdf
+*.ldf
+
+# ---------- Secrets / environment ----------
+# Never commit real secrets. Only *.example files are tracked.
+.env
+.env.*
+!.env.example
+!.env.*.example
+# Tracked deliberately: it contains only local endpoints, so a fresh clone runs
+# with no setup. Verified to hold no secrets - keep it that way.
+!mobile/.env.development
+appsettings.Local.json
+appsettings.*.Local.json
+secrets.json
+*.pfx
+*.p12
+*.keystore
+*.jks
+google-services.json
+GoogleService-Info.plist
+
+# ---------- Node / React Native / Expo ----------
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.expo/
+.expo-shared/
+dist/
+web-build/
+*.tsbuildinfo
+.metro-health-check*
+android/
+ios/
+
+# ---------- Uploaded content (never commit user data) ----------
+storage/
+uploads/
+receipts/
+
+# ---------- Logs ----------
+logs/
+*.log
+
+# ---------- OS / editors ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+*.swp

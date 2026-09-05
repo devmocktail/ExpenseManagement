@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/ExpenseManagement.IntegrationTests/ExpenseManagement.IntegrationTests.csproj" />
+    <Project Path="tests/ExpenseManagement.UnitTests/ExpenseManagement.UnitTests.csproj" />
+  </Folder>
+  <Project Path="ExpenseManagement.Api/ExpenseManagement.Api.csproj" />
+  <Project Path="ExpenseManagement.Application/ExpenseManagement.Application.csproj" />
+  <Project Path="ExpenseManagement.Domain/ExpenseManagement.Domain.csproj" />
+  <Project Path="ExpenseManagement.Infrastructure/ExpenseManagement.Infrastructure.csproj" />
+</Solution>
