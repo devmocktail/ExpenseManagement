@@ -10,6 +10,7 @@ using ExpenseManagement.Infrastructure;
 using ExpenseManagement.Infrastructure.Persistence;
 using ExpenseManagement.Infrastructure.Persistence.Seeding;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -227,12 +228,41 @@ try
         };
     });
 
+    // Must run before anything that reads the scheme or the client IP.
+    //
+    // Behind a reverse proxy (Render, Railway, an ingress controller, nginx)
+    // the app is reached over plain HTTP and the real scheme and caller only
+    // survive in X-Forwarded-* headers. Without this:
+    //   * Request.IsHttps is always false, so UseHttpsRedirection below would
+    //     redirect forever — the proxy re-forwards each redirect as HTTP;
+    //   * RemoteIpAddress is the proxy's, so the per-IP rate limiter puts every
+    //     user on the planet into one bucket, and the audit trail records the
+    //     proxy for every event.
+    app.UseForwardedHeaders(new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+
+        // The known-network lists default to loopback only, which rejects the
+        // headers from a PaaS proxy on an arbitrary internal address. Clearing
+        // them means we trust whatever fronts us — correct when the platform is
+        // the only route in, and NOT correct if this container is ever exposed
+        // directly, because then a client could forge its own X-Forwarded-For.
+        KnownNetworks = { },
+        KnownProxies = { },
+    });
+
     if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
     {
         app.UseSwaggerDocumentation(app.Services);
     }
 
-    if (!app.Environment.IsDevelopment())
+    // A PaaS terminates TLS at its edge and forwards HTTP over its private
+    // network. Redirecting there is not just redundant, it is a loop. The flag
+    // defaults to on so a self-hosted deployment keeps the redirect; set
+    // Hosting:BehindTlsTerminatingProxy=true on Render and friends.
+    var behindTlsProxy = builder.Configuration.GetValue("Hosting:BehindTlsTerminatingProxy", false);
+
+    if (!app.Environment.IsDevelopment() && !behindTlsProxy)
     {
         // HSTS tells browsers never to try this host over plain HTTP again. It
         // is off in development because a self-signed localhost certificate
@@ -259,13 +289,26 @@ try
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        if (app.Environment.IsDevelopment())
+        // Applying migrations from inside the app is a convenience with a real
+        // cost: two instances starting together can race on the same schema
+        // change, and a failed migration takes the deploy down rather than
+        // being a discrete step you can inspect and roll back.
+        //
+        // It is therefore automatic in Development and opt-in everywhere else.
+        // The opt-in exists because a PaaS like Render has no natural place to
+        // run a migration step — there is no pre-deploy hook on the free tier,
+        // and without this the container starts against an empty database and
+        // every request fails. Turn it on with
+        // Database__MigrateOnStartup=true, and turn it off again once you have
+        // somewhere better to run migrations from.
+        var migrateOnStartup = app.Environment.IsDevelopment()
+            || builder.Configuration.GetValue("Database:MigrateOnStartup", false);
+
+        if (migrateOnStartup)
         {
-            // Auto-migrating is a convenience that belongs only in development.
-            // In staging and production migrations are applied deliberately as a
-            // deployment step, so a rollback is possible and two instances
-            // starting at once cannot race on schema changes.
+            Log.Information("Applying database migrations on startup...");
             await db.Database.MigrateAsync();
+            Log.Information("Migrations are up to date.");
         }
 
         var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();

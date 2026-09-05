@@ -1,0 +1,43 @@
+# Keeping the build context small matters: everything not excluded here is
+# uploaded to the daemon (or to Render's builder) on every single build.
+
+# Mobile app - the API image has no use for it, and node_modules alone is
+# hundreds of megabytes.
+mobile/
+
+docs/
+database/
+.github/
+.git/
+.gitignore
+*.md
+!backend/**/*.md
+
+# Build output. Copying host bin/obj into the image is worse than useless: it
+# can shadow the container's own restore with artifacts built against a
+# different runtime and produce baffling errors.
+**/bin/
+**/obj/
+**/out/
+**/publish/
+
+# Local-only state
+**/logs/
+**/storage/
+**/uploads/
+**/receipts/
+**/.vs/
+**/.vscode/
+**/.idea/
+**/TestResults/
+**/*.user
+
+# Secrets must never enter an image layer - a layer is readable by anyone who
+# can pull it, and deleting a file in a later layer does not remove it.
+**/.env
+**/.env.*
+!**/.env.example
+**/appsettings.Local.json
+**/secrets.json
+**/*.pfx
+**/*.p12

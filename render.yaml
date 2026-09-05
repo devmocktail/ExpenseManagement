@@ -1,0 +1,68 @@
+# Render blueprint for the API.
+#
+# Render has no managed SQL Server, so DATABASE_URL is not provisioned here —
+# ConnectionStrings__DefaultConnection must point at a SQL Server you host
+# elsewhere (Azure SQL is the usual answer). See docs/deployment.md.
+#
+# Values marked sync:false are set once in the Render dashboard and never
+# committed. Everything here is safe to read publicly.
+
+services:
+  - type: web
+    name: expense-management-api
+    runtime: docker
+    plan: free
+    region: oregon
+
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+
+    # Render restarts an instance that fails this, so it must not require a
+    # database round trip to succeed... but ours does (AddDbContextCheck).
+    # That is deliberate: an API that cannot reach its database is not healthy,
+    # and a green light on a broken deploy is worse than a restart loop.
+    healthCheckPath: /health
+
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+
+      # Render terminates TLS at its edge and forwards plain HTTP. Without
+      # this the app's own HTTPS redirect fires on every request and the proxy
+      # forwards the redirect straight back — an infinite loop that presents as
+      # ERR_TOO_MANY_REDIRECTS.
+      - key: Hosting__BehindTlsTerminatingProxy
+        value: "true"
+
+      # No pre-deploy hook on the free plan, so the container applies its own
+      # migrations at startup. Revisit if you ever run more than one instance:
+      # two starting together can race on the same schema change.
+      - key: Database__MigrateOnStartup
+        value: "true"
+
+      # Never seed a demo account with a known password on a public host. The
+      # seeder refuses outside Development anyway; this is belt and braces.
+      - key: Seed__DemoUser
+        value: "false"
+
+      - key: Jwt__Issuer
+        value: ExpenseManagement.Api
+      - key: Jwt__Audience
+        value: ExpenseManagement.Mobile
+
+      # Set in the dashboard. Startup fails fast if this is missing or shorter
+      # than 32 characters, which is intended — a silently unsigned API is far
+      # worse than one that refuses to boot.
+      - key: Jwt__Secret
+        sync: false
+
+      # Set in the dashboard. Must include Encrypt=True for Azure SQL.
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+
+      # Render's filesystem is EPHEMERAL: this directory is wiped on every
+      # deploy and every restart. Fine for a smoke test, wrong for real
+      # receipts — attach a disk, or implement IFileStorage over object storage
+      # before anyone uploads something they expect to keep.
+      - key: FileStorage__RootPath
+        value: /app/storage
