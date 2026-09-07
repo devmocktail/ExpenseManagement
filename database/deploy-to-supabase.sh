@@ -106,11 +106,17 @@ echo "=== 2/3  Verifying the schema landed ==="
 # available, use it for a real look at what was created.
 if command -v psql >/dev/null 2>&1; then
   # Npgsql key/value -> libpq URI, so psql can reuse the same credentials.
-  host=$(printf '%s' "$CONN" | grep -oiE 'Host=[^;]*' | cut -d= -f2)
-  port=$(printf '%s' "$CONN" | grep -oiE 'Port=[^;]*' | cut -d= -f2)
-  db=$(printf '%s' "$CONN" | grep -oiE 'Database=[^;]*' | cut -d= -f2)
-  user=$(printf '%s' "$CONN" | grep -oiE 'Username=[^;]*' | cut -d= -f2)
-  pass=$(printf '%s' "$CONN" | grep -oiE 'Password=[^;]*' | cut -d= -f2)
+  # `cut -d= -f2-` keeps everything after the FIRST '=', not just up to the
+  # second one. Supabase generates passwords containing '=', and -f2 would
+  # silently truncate one to its first segment - producing an authentication
+  # failure against a connection string that is perfectly correct.
+  field() { printf '%s' "$CONN" | grep -oiE "$1=[^;]*" | head -1 | cut -d= -f2-; }
+
+  host=$(field Host)
+  port=$(field Port)
+  db=$(field Database)
+  user=$(field Username)
+  pass=$(field Password)
 
   export PGPASSWORD="$pass"
   PSQL=(psql -h "$host" -p "${port:-5432}" -U "$user" -d "${db:-postgres}" -tAc)
