@@ -211,14 +211,32 @@ public sealed class TransactionService(
         {
             var pattern = ToLikePattern(request.Search);
 
-            // Case-insensitivity comes from the column collation, not from
-            // ToLower(): wrapping the column in a function makes the predicate
-            // non-sargable and turns every search into a scan.
+            // Both sides are lowered, because PostgreSQL's LIKE is
+            // case-SENSITIVE.
+            //
+            // SQL Server's default collation is case-insensitive, so a bare Like
+            // was correct there and silently stops matching here: a search for
+            // "restaurant" would return nothing for a merchant stored as
+            // "Restaurant", with no error to explain it.
+            //
+            // Npgsql's EF.Functions.ILike would be the neater translation, but it
+            // is a provider-specific extension and using it would drag a
+            // reference to the database provider into the application layer,
+            // which is the one dependency this project's structure exists to
+            // prevent. lower() on both sides is standard SQL and reads the same
+            // on any provider.
+            //
+            // This does make the predicate non-sargable. It is affordable
+            // because the ownership filter has already narrowed the scan to one
+            // user's rows before this runs. If search ever does get slow, the
+            // fix is an expression index rather than a rewrite here:
+            //   CREATE INDEX IX_Transactions_Merchant_Lower
+            //       ON "Transactions" (lower("Merchant") text_pattern_ops);
             query = query.Where(x =>
-                EF.Functions.Like(x.Merchant!, pattern, LikeEscape) ||
-                EF.Functions.Like(x.Description!, pattern, LikeEscape) ||
-                EF.Functions.Like(x.Notes!, pattern, LikeEscape) ||
-                EF.Functions.Like(x.Category.Name, pattern, LikeEscape));
+                EF.Functions.Like(x.Merchant!.ToLower(), pattern, LikeEscape) ||
+                EF.Functions.Like(x.Description!.ToLower(), pattern, LikeEscape) ||
+                EF.Functions.Like(x.Notes!.ToLower(), pattern, LikeEscape) ||
+                EF.Functions.Like(x.Category.Name.ToLower(), pattern, LikeEscape));
         }
 
         if (request.CategoryId is { } categoryId)
@@ -298,19 +316,27 @@ public sealed class TransactionService(
     /// Wraps the search term in wildcards after neutralising any the user typed,
     /// so a search for "50%" matches a literal "50%" rather than everything that
     /// starts with 50.
+    ///
+    /// The result is lowercased to pair with the lowered columns in the
+    /// predicate; leaving it in the caller's case would make every search with a
+    /// capital letter silently return nothing.
     /// </summary>
     private static string ToLikePattern(string search)
     {
         // The escape character has to be doubled first: escaping the wildcards
         // first would then double their fresh escape prefixes and match nothing.
-        // A closing bracket needs no escaping - defusing "[" disarms the range.
+        //
+        // "[" is escaped for SQL Server's benefit, where it opens a character
+        // class. PostgreSQL's LIKE has no character classes and treats it as a
+        // literal, so the escape is harmless there — an escaped "[" still
+        // matches a "[".
         var escaped = search.Trim()
             .Replace("\\", "\\\\")
             .Replace("%", "\\%")
             .Replace("_", "\\_")
             .Replace("[", "\\[");
 
-        return $"%{escaped}%";
+        return $"%{escaped}%".ToLowerInvariant();
     }
 
     /// <summary>

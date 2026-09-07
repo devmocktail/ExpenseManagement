@@ -13,14 +13,14 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
             // Enforced in the database as well as the validator: a negative or zero
             // amount would flip a balance the wrong way, and direction is carried by
             // Type, not by the sign of Amount.
-            t.HasCheckConstraint("CK_Transactions_Amount_Positive", "[Amount] > 0");
+            t.HasCheckConstraint("CK_Transactions_Amount_Positive", "\"Amount\" > 0");
         });
 
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.Id).HasDefaultValueSql("NEWSEQUENTIALID()");
+        builder.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
 
         builder.Property(x => x.Amount)
-            .HasColumnType("decimal(18,2)")
+            .HasColumnType("numeric(18,2)")
             .IsRequired();
 
         builder.Property(x => x.CurrencyCode)
@@ -55,19 +55,19 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
         // Deleting the schedule leaves the transactions it already generated
         // intact — they are real money that was really spent.
         //
-        // ClientSetNull, not SetNull. SQL Server counts ON DELETE SET NULL as a
-        // cascading action, and Transactions is already reachable from Users by
-        // a cascading path (Users -> Transactions). A second path
-        // (Users -> RecurringTransactions -> Transactions) makes two, which the
-        // engine rejects at DDL time with Msg 1785. ClientSetNull keeps the same
-        // behaviour for anything EF has loaded while emitting ON DELETE NO
-        // ACTION, so the constraint is creatable. The only caller that hard
-        // deletes a schedule is the retention purge, which must therefore null
-        // the column itself first.
+        // SetNull, which PostgreSQL enforces itself. Under SQL Server this had
+        // to be ClientSetNull: that engine counts ON DELETE SET NULL as a
+        // cascading action and refuses a table reachable by two cascade paths
+        // from one principal (Users -> Transactions, and
+        // Users -> RecurringTransactions -> Transactions), failing at DDL time
+        // with Msg 1785. PostgreSQL has no such restriction, so the database
+        // can enforce this again instead of relying on EF having loaded the
+        // children — which means a hard delete of a schedule no longer needs
+        // the caller to null the column first.
         builder.HasOne(x => x.RecurringTransaction)
             .WithMany(r => r.GeneratedTransactions)
             .HasForeignKey(x => x.RecurringTransactionId)
-            .OnDelete(DeleteBehavior.ClientSetNull);
+            .OnDelete(DeleteBehavior.SetNull);
 
         // The workhorse index: the transaction list, the dashboard and every
         // analytics range scan all filter by user and order by date descending.
@@ -89,11 +89,11 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
         builder.HasIndex(x => new { x.UserId, x.ClientReference })
             .HasDatabaseName("UX_Transactions_UserId_ClientReference")
             .IsUnique()
-            .HasFilter("[ClientReference] IS NOT NULL AND [IsDeleted] = 0");
+            .HasFilter("\"ClientReference\" IS NOT NULL AND \"IsDeleted\" = false");
 
         builder.HasIndex(x => x.RecurringTransactionId)
             .HasDatabaseName("IX_Transactions_RecurringTransactionId")
-            .HasFilter("[RecurringTransactionId] IS NOT NULL");
+            .HasFilter("\"RecurringTransactionId\" IS NOT NULL");
 
         // Not for any application query — this exists so SQL Server can enforce
         // the RESTRICT on Category cheaply. Its probe is a bare

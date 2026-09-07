@@ -1,49 +1,36 @@
 /*
-    DESTRUCTIVE. Drops the development database.
+    DESTRUCTIVE. Drops and recreates the development database.
 
-    Nothing recovers the data afterwards. Only ever point this at LocalDB.
+    Nothing recovers the data afterwards. Only ever point this at a local
+    PostgreSQL.
 
-    The guard below refuses to run anywhere that is not LocalDB, because the one
-    way this script causes real harm is being pasted into a window that is still
-    connected to a shared server.
+    It cannot run inside a connection to the database it drops, so run it
+    against `postgres`:
 
-    After running, either start the API (it migrates automatically in
-    Development) or apply migrations by hand:
+        psql -h localhost -p 5432 -U postgres -d postgres -f reset-dev.sql
+
+    Then rebuild the schema:
 
         cd backend
-        dotnet ef database update --project ExpenseManagement.Infrastructure ^
+        dotnet ef database update --project ExpenseManagement.Infrastructure \
                                   --startup-project ExpenseManagement.Api
+
+    or just start the API in Development, which migrates on startup.
 */
 
-SET NOCOUNT ON;
+\set ON_ERROR_STOP on
 
-IF SERVERPROPERTY('ServerName') NOT LIKE '%LOCALDB%'
-BEGIN
-    RAISERROR(
-        'Refusing to run: this connection is not LocalDB. reset-dev.sql only ever targets a throwaway development database.',
-        16, 1);
-    SET NOEXEC ON;
-END
-GO
+\echo 'Terminating existing connections to ExpenseManagement...'
+-- A single open session — an idle psql, a running API — is enough to make DROP
+-- DATABASE fail, so they are closed first.
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE datname = 'ExpenseManagement' AND pid <> pg_backend_pid();
 
-USE master;
-GO
+\echo 'Dropping ExpenseManagement...'
+DROP DATABASE IF EXISTS "ExpenseManagement";
 
-IF DB_ID('ExpenseManagement') IS NOT NULL
-BEGIN
-    PRINT 'Closing existing connections to ExpenseManagement...';
-    ALTER DATABASE ExpenseManagement SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+\echo 'Recreating ExpenseManagement...'
+CREATE DATABASE "ExpenseManagement";
 
-    PRINT 'Dropping ExpenseManagement...';
-    DROP DATABASE ExpenseManagement;
-
-    PRINT 'Dropped. Start the API (Development) or run dotnet ef database update to rebuild it.';
-END
-ELSE
-BEGIN
-    PRINT 'ExpenseManagement does not exist; nothing to drop.';
-END
-GO
-
-SET NOEXEC OFF;
-GO
+\echo 'Done. Run dotnet ef database update, or start the API in Development.'

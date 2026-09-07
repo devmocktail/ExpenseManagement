@@ -16,11 +16,11 @@ public class CategoryConfiguration : IEntityTypeConfiguration<Category>
             // still holds if the column is ever moved to a case-sensitive collation.
             t.HasCheckConstraint(
                 "CK_Categories_Color_Hex",
-                "[Color] LIKE '[#][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]'");
+                "\"Color\" ~ '^#[0-9A-Fa-f]{6}$'");
         });
 
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.Id).HasDefaultValueSql("NEWSEQUENTIALID()");
+        builder.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
 
         builder.Property(x => x.UserId).IsRequired();
 
@@ -67,7 +67,18 @@ public class CategoryConfiguration : IEntityTypeConfiguration<Category>
         builder.HasIndex(x => new { x.UserId, x.Name, x.Type })
             .HasDatabaseName("UX_Categories_UserId_Name_Type")
             .IsUnique()
-            .HasFilter("[IsDeleted] = 0");
+            .HasFilter("\"IsDeleted\" = false");
+
+        // NOTE: the index above is case-SENSITIVE on PostgreSQL, where it was
+        // case-insensitive under SQL Server's default collation. "Food" and
+        // "food" would therefore both be permitted by the database.
+        //
+        // The application rejects them in CategoryService, but that check and
+        // the constraint have to agree or a race slips through. A companion
+        // expression index on lower("Name") closes it, and cannot be declared
+        // here because EF Core has no fluent syntax for an index over an
+        // expression — it is created by raw SQL in the migration and is not
+        // represented in the model snapshot.
 
         // Drives the category picker and every chip/legend lookup: filter by user
         // and ledger side, order by SortOrder. Carrying the display columns makes it

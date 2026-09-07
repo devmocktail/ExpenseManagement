@@ -17,11 +17,11 @@ public class DeviceTokenConfiguration : IEntityTypeConfiguration<DeviceToken>
             // dead installation forever.
             t.HasCheckConstraint(
                 "CK_DeviceTokens_Invalidated_Inactive",
-                "[InvalidatedAt] IS NULL OR [IsActive] = 0");
+                "\"InvalidatedAt\" IS NULL OR \"IsActive\" = false");
         });
 
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.Id).HasDefaultValueSql("NEWSEQUENTIALID()");
+        builder.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
 
         builder.Property(x => x.UserId).IsRequired();
 
@@ -75,6 +75,6 @@ public class DeviceTokenConfiguration : IEntityTypeConfiguration<DeviceToken>
         // outright, which keeps this index a small fraction of the table.
         builder.HasIndex(x => x.LastSeenAt)
             .HasDatabaseName("IX_DeviceTokens_LastSeenAt")
-            .HasFilter("[IsActive] = 1");
+            .HasFilter("\"IsActive\" = true");
     }
 }

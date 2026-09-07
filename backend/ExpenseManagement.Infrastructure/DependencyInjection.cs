@@ -43,17 +43,17 @@ public static class DependencyInjection
         //
         // A `?? throw` looks like fail-fast and is not: a config file carrying
         // `"DefaultConnection": ""` as a placeholder returns an empty string,
-        // which is not null, so the guard passes. UseSqlServer accepts it
+        // which is not null, so the guard passes. The provider accepts it
         // happily and the failure surfaces much later, on the first query, as
-        // "The ConnectionString property has not been initialized" over a wall
-        // of SqlClient stack frames that says nothing about configuration.
+        // a connection error over a wall of driver stack frames that says
+        // nothing about configuration.
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             throw new InvalidOperationException(
                 """
                 ConnectionStrings:DefaultConnection is not configured.
 
-                This application requires SQL Server. Set the connection string
+                This application requires PostgreSQL. Set the connection string
                 for the environment it is running in:
 
                   * Locally      appsettings.Development.json
@@ -64,17 +64,19 @@ public static class DependencyInjection
                 The double underscore is the nesting separator: it binds to the
                 ConnectionStrings:DefaultConnection key.
 
-                Note that Render provisions PostgreSQL, not SQL Server, so this
-                must point at a SQL Server you host elsewhere - Azure SQL is the
-                usual answer. See docs/deployment.md.
+                For Supabase, copy the URI from Project Settings > Database and
+                convert it to Npgsql's key/value form. Use the SESSION pooler on
+                port 5432, not the transaction pooler on 6543 - the latter cannot
+                hold the prepared statements Npgsql relies on. See
+                docs/deployment.md.
                 """);
         }
 
         services.AddDbContext<AppDbContext>(options =>
         {
-            options.UseSqlServer(connectionString, sql =>
+            options.UseNpgsql(connectionString, npgsql =>
             {
-                sql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+                npgsql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
 
                 // EnableRetryOnFailure is deliberately NOT set.
                 //
@@ -97,9 +99,9 @@ public static class DependencyInjection
                 // Until that work is done, resilience lives where it costs
                 // nothing: the mobile client retries 5xx and network failures
                 // (see mobile/src/api/query-client.ts). Re-enable this — and do
-                // the ExecuteAsync restructure with it — when moving to Azure
-                // SQL, where transient faults are frequent enough to matter.
-                sql.CommandTimeout(30);
+                // the ExecuteAsync restructure with it — if a hosted Postgres
+                // proves flaky enough to warrant it.
+                npgsql.CommandTimeout(30);
             });
 
             if (environment.IsDevelopment())

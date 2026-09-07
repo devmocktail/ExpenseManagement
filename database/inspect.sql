@@ -1,205 +1,175 @@
 /*
-    Read-only inspection of the ExpenseManagement schema.
+    Read-only inspection of the ExpenseManagement schema on PostgreSQL.
 
-    Nothing here writes. Run the whole file, or one section at a time in SSMS
-    with the section highlighted.
+    Nothing here writes. Run the whole file, or one statement at a time.
 
-    USE ExpenseManagement;
+        psql -h localhost -p 5432 -U postgres -d ExpenseManagement -f inspect.sql
+
+    Identifiers are double-quoted throughout because EF creates them in
+    PascalCase; unquoted, PostgreSQL folds to lowercase and nothing resolves.
 */
 
--- ---------------------------------------------------------------------------
--- 1. What is actually in the database
--- ---------------------------------------------------------------------------
+\echo '=== 1. Tables and row counts ==='
 SELECT
-    t.name                                   AS TableName,
-    SUM(p.rows)                              AS [Rows],
-    CAST(SUM(a.total_pages) * 8.0 / 1024 AS decimal(10, 2)) AS SizeMB
-FROM sys.tables t
-JOIN sys.partitions p  ON p.object_id = t.object_id AND p.index_id IN (0, 1)
-JOIN sys.allocation_units a ON a.container_id = p.partition_id
-GROUP BY t.name
-ORDER BY SUM(p.rows) DESC;
+    c.relname                                   AS table_name,
+    c.reltuples::bigint                         AS estimated_rows,
+    pg_size_pretty(pg_total_relation_size(c.oid)) AS total_size
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND c.relkind = 'r'
+ORDER BY pg_total_relation_size(c.oid) DESC;
 
 
--- ---------------------------------------------------------------------------
--- 2. Money columns
---
--- Every one of these must be decimal(18,2). A float here would silently lose
--- fractions of a rupee on every arithmetic operation, and the loss compounds.
--- ---------------------------------------------------------------------------
+\echo ''
+\echo '=== 2. Money columns (every one must be numeric(18,2)) ==='
+-- A float here would lose fractions of a unit on every operation, and the loss
+-- compounds silently across a ledger.
 SELECT
-    TABLE_NAME,
-    COLUMN_NAME,
-    DATA_TYPE,
-    NUMERIC_PRECISION,
-    NUMERIC_SCALE,
+    table_name,
+    column_name,
+    data_type,
+    numeric_precision,
+    numeric_scale,
     CASE
-        WHEN DATA_TYPE = 'decimal' AND NUMERIC_PRECISION = 18 AND NUMERIC_SCALE = 2
+        WHEN data_type = 'numeric' AND numeric_precision = 18 AND numeric_scale = 2
             THEN 'OK'
         ELSE '*** WRONG TYPE FOR MONEY ***'
-    END AS Verdict
-FROM INFORMATION_SCHEMA.COLUMNS
-WHERE COLUMN_NAME IN ('Amount', 'Spent', 'Balance')
-   OR DATA_TYPE IN ('float', 'real', 'money', 'smallmoney')
-ORDER BY TABLE_NAME, COLUMN_NAME;
+    END AS verdict
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND (column_name IN ('Amount', 'Spent', 'Balance')
+       OR data_type IN ('double precision', 'real', 'money'))
+ORDER BY table_name, column_name;
 
 
--- ---------------------------------------------------------------------------
--- 3. Foreign keys and their delete behaviour
---
--- SQL Server allows at most ONE cascade path between the same pair of tables.
--- Every user-owned table already cascades from Users, so a second cascading
--- path into the same table is rejected at CREATE time. Receipts is the
--- interesting row: it cascades from Transactions and is NO_ACTION from Users.
--- ---------------------------------------------------------------------------
+\echo ''
+\echo '=== 3. Foreign keys and delete behaviour ==='
+-- PostgreSQL, unlike SQL Server, permits several cascade paths to the same
+-- principal, which is why Transactions -> RecurringTransactions can be a real
+-- SET NULL here rather than being emulated in EF.
 SELECT
-    OBJECT_NAME(fk.parent_object_id)     AS ChildTable,
-    c1.name                              AS ChildColumn,
-    OBJECT_NAME(fk.referenced_object_id) AS ParentTable,
-    fk.delete_referential_action_desc    AS OnDelete
-FROM sys.foreign_keys fk
-JOIN sys.foreign_key_columns fkc ON fkc.constraint_object_id = fk.object_id
-JOIN sys.columns c1 ON c1.object_id = fkc.parent_object_id
-                   AND c1.column_id = fkc.parent_column_id
-ORDER BY ChildTable, ParentTable;
+    con.conrelid::regclass::text  AS child_table,
+    con.confrelid::regclass::text AS parent_table,
+    con.conname                   AS constraint_name,
+    CASE con.confdeltype
+        WHEN 'a' THEN 'NO ACTION'
+        WHEN 'r' THEN 'RESTRICT'
+        WHEN 'c' THEN 'CASCADE'
+        WHEN 'n' THEN 'SET NULL'
+        WHEN 'd' THEN 'SET DEFAULT'
+    END AS on_delete
+FROM pg_constraint con
+JOIN pg_namespace n ON n.oid = con.connamespace
+WHERE con.contype = 'f' AND n.nspname = 'public'
+ORDER BY child_table, parent_table;
 
 
--- ---------------------------------------------------------------------------
--- 4. Indexes
---
--- The workhorse is IX_Transactions_UserId_TransactionDate: the list screen,
--- the dashboard and every analytics range scan all filter by user and order by
--- date. IX_Transactions_CategoryId exists only so SQL Server can enforce the
--- RESTRICT on category deletes without scanning the largest table.
--- ---------------------------------------------------------------------------
+\echo ''
+\echo '=== 4. Indexes ==='
+-- The workhorse is IX_Transactions_UserId_TransactionDate: the list screen, the
+-- dashboard and every analytics range scan filter by user and order by date.
+-- IX_Transactions_CategoryId exists only so the RESTRICT on category deletes
+-- can be enforced without scanning the largest table.
 SELECT
-    OBJECT_NAME(i.object_id) AS TableName,
-    i.name                   AS IndexName,
-    i.type_desc              AS IndexType,
-    i.is_unique              AS IsUnique,
-    i.filter_definition      AS FilteredOn,
-    STUFF((
-        SELECT ', ' + c.name + CASE WHEN ic.is_descending_key = 1 THEN ' DESC' ELSE '' END
-        FROM sys.index_columns ic
-        JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
-        WHERE ic.object_id = i.object_id
-          AND ic.index_id = i.index_id
-          AND ic.is_included_column = 0
-        ORDER BY ic.key_ordinal
-        FOR XML PATH('')), 1, 2, '') AS KeyColumns
-FROM sys.indexes i
-WHERE i.object_id IN (SELECT object_id FROM sys.tables)
-  AND i.type > 0
-ORDER BY TableName, IndexName;
+    tablename  AS table_name,
+    indexname  AS index_name,
+    indexdef   AS definition
+FROM pg_indexes
+WHERE schemaname = 'public'
+ORDER BY tablename, indexname;
 
 
--- ---------------------------------------------------------------------------
--- 5. CHECK constraints
---
--- These are the last line of defence. The API validates the same rules, but a
--- bug there must not be able to write a negative amount or a budget window
--- that ends before it starts.
--- ---------------------------------------------------------------------------
+\echo ''
+\echo '=== 5. CHECK constraints ==='
+-- The last line of defence. The API validates the same rules, but a bug there
+-- must not be able to write a negative amount or an inverted budget window.
 SELECT
-    OBJECT_NAME(parent_object_id) AS TableName,
-    name                          AS ConstraintName,
-    definition                    AS Rule
-FROM sys.check_constraints
-ORDER BY TableName, name;
+    con.conrelid::regclass::text AS table_name,
+    con.conname                  AS constraint_name,
+    pg_get_constraintdef(con.oid) AS definition
+FROM pg_constraint con
+JOIN pg_namespace n ON n.oid = con.connamespace
+WHERE con.contype = 'c'
+  AND n.nspname = 'public'
+  AND con.conname LIKE 'CK_%'
+ORDER BY table_name, constraint_name;
 
 
--- ---------------------------------------------------------------------------
--- 6. Accounts
---
--- Note this deliberately shows soft-deleted accounts too: the application hides
--- them, SQL does not.
--- ---------------------------------------------------------------------------
+\echo ''
+\echo '=== 6. Accounts (soft-deleted ones included — SQL applies no filter) ==='
 SELECT
-    u.Email,
-    u.FullName,
-    u.IsDeleted,
-    u.CreatedAt,
-    u.LastLoginAt,
-    (SELECT COUNT(*) FROM Transactions t WHERE t.UserId = u.Id AND t.IsDeleted = 0) AS LiveTransactions,
-    (SELECT COUNT(*) FROM Categories  c WHERE c.UserId = u.Id AND c.IsDeleted = 0) AS Categories,
-    (SELECT COUNT(*) FROM Budgets     b WHERE b.UserId = u.Id AND b.IsDeleted = 0) AS Budgets
-FROM Users u
-ORDER BY u.CreatedAt;
+    u."Email",
+    u."FullName",
+    u."IsDeleted",
+    u."CreatedAt",
+    u."LastLoginAt",
+    (SELECT count(*) FROM "Transactions" t WHERE t."UserId" = u."Id" AND NOT t."IsDeleted") AS live_transactions,
+    (SELECT count(*) FROM "Categories"  c WHERE c."UserId" = u."Id" AND NOT c."IsDeleted") AS categories,
+    (SELECT count(*) FROM "Budgets"     b WHERE b."UserId" = u."Id" AND NOT b."IsDeleted") AS budgets
+FROM "Users" u
+ORDER BY u."CreatedAt";
 
 
--- ---------------------------------------------------------------------------
--- 7. The demo account's ledger
--- ---------------------------------------------------------------------------
-SELECT TOP (25)
-    t.TransactionDate,
-    CASE t.Type WHEN 1 THEN 'Expense' WHEN 2 THEN 'Income' END AS Type,
-    t.Amount,
-    t.CurrencyCode,
-    c.Name AS Category,
-    t.Merchant,
-    t.Description
-FROM Transactions t
-JOIN Categories c ON c.Id = t.CategoryId
-JOIN Users      u ON u.Id = t.UserId
-WHERE u.Email = 'demo@expense.local'
-  AND t.IsDeleted = 0
-ORDER BY t.TransactionDate DESC;
-
-
--- ---------------------------------------------------------------------------
--- 8. Spend by category for the demo account
---
--- This is the same aggregation AnalyticsService performs; running it here is a
--- quick way to confirm the API's numbers against the raw data.
--- ---------------------------------------------------------------------------
+\echo ''
+\echo '=== 7. The demo account ledger ==='
 SELECT
-    c.Name                                     AS Category,
-    COUNT(*)                                   AS Txns,
-    SUM(t.Amount)                              AS Total,
-    CAST(100.0 * SUM(t.Amount) / NULLIF(SUM(SUM(t.Amount)) OVER (), 0) AS decimal(5, 2)) AS Pct
-FROM Transactions t
-JOIN Categories c ON c.Id = t.CategoryId
-JOIN Users      u ON u.Id = t.UserId
-WHERE u.Email = 'demo@expense.local'
-  AND t.IsDeleted = 0
-  AND t.Type = 1                                   -- expenses only
-GROUP BY c.Name
-ORDER BY Total DESC;
+    t."TransactionDate",
+    CASE t."Type" WHEN 1 THEN 'Expense' WHEN 2 THEN 'Income' END AS type,
+    t."Amount",
+    t."CurrencyCode",
+    c."Name" AS category,
+    t."Merchant"
+FROM "Transactions" t
+JOIN "Categories" c ON c."Id" = t."CategoryId"
+JOIN "Users"      u ON u."Id" = t."UserId"
+WHERE u."Email" = 'demo@expense.local' AND NOT t."IsDeleted"
+ORDER BY t."TransactionDate" DESC
+LIMIT 25;
 
 
--- ---------------------------------------------------------------------------
--- 9. Refresh-token families
---
--- Only the SHA-256 hash is ever stored, so nothing here is replayable. A row
--- with ReplacedByTokenHash set has been rotated; presenting it again is treated
--- as theft and revokes the whole family.
--- ---------------------------------------------------------------------------
+\echo ''
+\echo '=== 8. Spend by category for the demo account ==='
+-- The same aggregation AnalyticsService performs, so its output can be checked
+-- against the API's.
 SELECT
-    u.Email,
-    rt.FamilyId,
-    rt.CreatedAt,
-    rt.ExpiresAt,
-    rt.RevokedAt,
-    rt.RevokedReason,
-    CASE WHEN rt.ReplacedByTokenHash IS NULL THEN 'current' ELSE 'rotated' END AS State
-FROM RefreshTokens rt
-JOIN Users u ON u.Id = rt.UserId
-ORDER BY u.Email, rt.FamilyId, rt.CreatedAt;
+    c."Name"                 AS category,
+    count(*)                 AS transactions,
+    sum(t."Amount")          AS total,
+    round(100.0 * sum(t."Amount") / NULLIF(sum(sum(t."Amount")) OVER (), 0), 2) AS pct
+FROM "Transactions" t
+JOIN "Categories" c ON c."Id" = t."CategoryId"
+JOIN "Users"      u ON u."Id" = t."UserId"
+WHERE u."Email" = 'demo@expense.local'
+  AND NOT t."IsDeleted"
+  AND t."Type" = 1
+GROUP BY c."Name"
+ORDER BY total DESC;
 
 
--- ---------------------------------------------------------------------------
--- 10. Audit trail
---
--- Append-only, and deliberately has no foreign key to Users: it must survive
--- account deletion and must be able to record a failed login for an address
--- that never became an account.
--- ---------------------------------------------------------------------------
-SELECT TOP (30)
-    CreatedAt,
-    Action,
-    Succeeded,
-    UserId,
-    IpAddress,
-    MetadataJson
-FROM AuditLogs
-ORDER BY CreatedAt DESC;
+\echo ''
+\echo '=== 9. Refresh-token families ==='
+-- Only a SHA-256 hash is ever stored, so nothing here is replayable. A row with
+-- ReplacedByTokenHash set has been rotated; presenting it again is treated as
+-- theft and revokes the family.
+SELECT
+    u."Email",
+    rt."FamilyId",
+    rt."CreatedAt",
+    rt."ExpiresAt",
+    rt."RevokedAt",
+    rt."RevokedReason",
+    CASE WHEN rt."ReplacedByTokenHash" IS NULL THEN 'current' ELSE 'rotated' END AS state
+FROM "RefreshTokens" rt
+JOIN "Users" u ON u."Id" = rt."UserId"
+ORDER BY u."Email", rt."FamilyId", rt."CreatedAt";
+
+
+\echo ''
+\echo '=== 10. Audit trail ==='
+-- Append-only, and deliberately without a foreign key to Users: it must survive
+-- account deletion and record a failed login for an address that never became
+-- an account.
+SELECT "CreatedAt", "Action", "Succeeded", "UserId", "IpAddress"
+FROM "AuditLogs"
+ORDER BY "CreatedAt" DESC
+LIMIT 30;

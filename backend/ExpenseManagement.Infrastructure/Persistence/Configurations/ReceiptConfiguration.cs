@@ -18,11 +18,11 @@ public class ReceiptConfiguration : IEntityTypeConfiguration<Receipt>
             // would render as a broken thumbnail forever.
             t.HasCheckConstraint(
                 "CK_Receipts_FileSizeBytes_Range",
-                "[FileSizeBytes] > 0 AND [FileSizeBytes] <= 10485760");
+                "\"FileSizeBytes\" > 0 AND \"FileSizeBytes\" <= 10485760");
         });
 
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.Id).HasDefaultValueSql("NEWSEQUENTIALID()");
+        builder.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
 
         builder.Property(x => x.UserId).IsRequired();
         builder.Property(x => x.TransactionId).IsRequired();

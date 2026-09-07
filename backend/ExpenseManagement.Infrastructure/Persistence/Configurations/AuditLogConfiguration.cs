@@ -14,11 +14,11 @@ public class AuditLogConfiguration : IEntityTypeConfiguration<AuditLog>
             // fact is not evidence. SaveChanges only stamps UpdatedAt on a
             // Modified entry, so pinning it to NULL turns any future attempt to
             // rewrite history into a constraint violation instead of a silent edit.
-            t.HasCheckConstraint("CK_AuditLogs_AppendOnly", "[UpdatedAt] IS NULL");
+            t.HasCheckConstraint("CK_AuditLogs_AppendOnly", "\"UpdatedAt\" IS NULL");
         });
 
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.Id).HasDefaultValueSql("NEWSEQUENTIALID()");
+        builder.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
 
         // No foreign key to Users, on purpose. The trail has to outlive the account
         // it describes — a GDPR erasure or a hard delete must not take the record of
@@ -69,7 +69,7 @@ public class AuditLogConfiguration : IEntityTypeConfiguration<AuditLog>
         // filter keeps this index a fraction of the table's size.
         builder.HasIndex(x => new { x.EntityName, x.EntityId, x.CreatedAt })
             .HasDatabaseName("IX_AuditLogs_EntityName_EntityId_CreatedAt")
-            .HasFilter("[EntityId] IS NOT NULL")
+            .HasFilter("\"EntityId\" IS NOT NULL")
             .IsDescending(false, false, true);
     }
 }

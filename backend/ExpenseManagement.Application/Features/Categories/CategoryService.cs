@@ -65,12 +65,21 @@ public sealed class CategoryService(
         // the same colour from ever comparing unequal downstream.
         var color = request.Color.Trim().ToUpperInvariant();
 
+        // Compared case-insensitively, which PostgreSQL does not do for free.
+        // SQL Server's default collation made `Name == name` case-insensitive,
+        // so "Food" and "food" were correctly rejected as duplicates. On
+        // PostgreSQL that same expression is case-sensitive and would let both
+        // exist side by side — a silent behaviour change with no error to
+        // notice. lower() on both sides restores it, and matches the expression
+        // index that backs the constraint.
+        var comparableName = name.ToLowerInvariant();
+
         var duplicate = await db.Categories
             .AsNoTracking()
             .AnyAsync(
                 category => category.UserId == userId
                     && category.Type == request.Type
-                    && category.Name == name,
+                    && category.Name.ToLower() == comparableName,
                 cancellationToken);
 
         if (duplicate)
@@ -142,12 +151,17 @@ public sealed class CategoryService(
         // ledger, so existing transactions cannot change sign behind the user.
         if (!string.Equals(category.Name, name, StringComparison.OrdinalIgnoreCase))
         {
+            // lower() on both sides, for the same reason as CreateAsync: on
+            // PostgreSQL a bare `Name == name` is case-sensitive, so renaming
+            // "food" to "Food" would sail past a check that is meant to catch it.
+            var comparableName = name.ToLowerInvariant();
+
             var duplicate = await db.Categories
                 .AsNoTracking()
                 .AnyAsync(
                     c => c.UserId == userId
                         && c.Type == category.Type
-                        && c.Name == name
+                        && c.Name.ToLower() == comparableName
                         && c.Id != id,
                     cancellationToken);
 

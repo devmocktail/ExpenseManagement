@@ -18,12 +18,12 @@ public class ApplicationUserConfiguration : IEntityTypeConfiguration<Application
             // retention purge — it would linger forever, holding its email hostage.
             t.HasCheckConstraint(
                 "CK_Users_SoftDelete_Consistent",
-                "([IsDeleted] = 0 AND [DeletedAt] IS NULL) OR ([IsDeleted] = 1 AND [DeletedAt] IS NOT NULL)");
+                "(\"IsDeleted\" = false AND \"DeletedAt\" IS NULL) OR (\"IsDeleted\" = true AND \"DeletedAt\" IS NOT NULL)");
 
             // FullName initialises to string.Empty, so NOT NULL alone still admits a
             // blank name, which then renders as an empty caption on every screen that
             // greets the user or shows an avatar fallback.
-            t.HasCheckConstraint("CK_Users_FullName_NotEmpty", "LEN(LTRIM([FullName])) > 0");
+            t.HasCheckConstraint("CK_Users_FullName_NotEmpty", "length(btrim(\"FullName\")) > 0");
         });
 
         // Nothing here touches Id, UserName, Email, PasswordHash, the stamps or
@@ -65,7 +65,7 @@ public class ApplicationUserConfiguration : IEntityTypeConfiguration<Application
         // on the rare IsDeleted = 1 side, it stays a few pages regardless of user count.
         builder.HasIndex(x => x.DeletedAt)
             .HasDatabaseName("IX_Users_DeletedAt")
-            .HasFilter("[IsDeleted] = 1");
+            .HasFilter("\"IsDeleted\" = true");
 
         // Dormancy and re-engagement jobs sweep live accounts by last sign-in; filtering
         // out deleted rows keeps them out of a scan that is otherwise range-only.
@@ -73,7 +73,7 @@ public class ApplicationUserConfiguration : IEntityTypeConfiguration<Application
         // same seek that finds the longest-dormant ones.
         builder.HasIndex(x => x.LastLoginAt)
             .HasDatabaseName("IX_Users_LastLoginAt")
-            .HasFilter("[IsDeleted] = 0")
+            .HasFilter("\"IsDeleted\" = false")
             .IncludeProperties(x => new { x.FullName, x.CreatedAt });
     }
 }

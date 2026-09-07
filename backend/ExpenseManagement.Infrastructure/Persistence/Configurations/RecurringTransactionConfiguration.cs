@@ -13,23 +13,23 @@ public class RecurringTransactionConfiguration : IEntityTypeConfiguration<Recurr
             // Same rule as Transactions: direction lives in Type, so a zero or
             // negative template would generate rows that move a balance the wrong
             // way on every future run, not just once.
-            t.HasCheckConstraint("CK_RecurringTransactions_Amount_Positive", "[Amount] > 0");
+            t.HasCheckConstraint("CK_RecurringTransactions_Amount_Positive", "\"Amount\" > 0");
 
             // Interval 0 would make NextRunDate advance by nothing, so the scheduler
             // would re-fire the same schedule forever on the same tick. A negative
             // interval walks the date backwards, which is the same runaway loop.
-            t.HasCheckConstraint("CK_RecurringTransactions_Interval_Positive", "[Interval] >= 1");
+            t.HasCheckConstraint("CK_RecurringTransactions_Interval_Positive", "\"Interval\" >= 1");
 
             // 0 disables the reminder; the upper bound stops a schedule from queueing
             // a notification further out than the shortest supported period, which
             // would fire before the previous occurrence had even been generated.
             t.HasCheckConstraint(
                 "CK_RecurringTransactions_ReminderDaysBefore_Range",
-                "[ReminderDaysBefore] >= 0 AND [ReminderDaysBefore] <= 30");
+                "\"ReminderDaysBefore\" >= 0 AND \"ReminderDaysBefore\" <= 30");
         });
 
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.Id).HasDefaultValueSql("NEWSEQUENTIALID()");
+        builder.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
 
         builder.Property(x => x.UserId).IsRequired();
         builder.Property(x => x.CategoryId).IsRequired();
@@ -39,7 +39,7 @@ public class RecurringTransactionConfiguration : IEntityTypeConfiguration<Recurr
             .IsRequired();
 
         builder.Property(x => x.Amount)
-            .HasColumnType("decimal(18,2)")
+            .HasColumnType("numeric(18,2)")
             .IsRequired();
 
         builder.Property(x => x.CurrencyCode)
@@ -95,7 +95,7 @@ public class RecurringTransactionConfiguration : IEntityTypeConfiguration<Recurr
         // rather than something that can partition the index.
         builder.HasIndex(x => x.NextRunDate)
             .HasDatabaseName("IX_RecurringTransactions_NextRunDate")
-            .HasFilter("[IsPaused] = 0 AND [IsDeleted] = 0");
+            .HasFilter("\"IsPaused\" = false AND \"IsDeleted\" = false");
 
         // The user's "Recurring" screen, which lists active and paused schedules in
         // separate sections. Carrying the row's display columns keeps the screen a

@@ -10,13 +10,18 @@ namespace ExpenseManagement.Infrastructure.Persistence;
 /// Design-time tooling otherwise has to boot the whole host to find a
 /// connection string, which fails whenever the app needs configuration the
 /// developer's shell does not have. This reads the API's appsettings directly
-/// and falls back to LocalDB, so <c>dotnet ef migrations add</c> works from a
-/// clean clone with no environment set up.
+/// and falls back to a local Postgres, so <c>dotnet ef migrations add</c> works
+/// from a clean clone with no environment set up.
 /// </summary>
 public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 {
-    private const string LocalDbFallback =
-        "Server=(localdb)\\MSSQLLocalDB;Database=ExpenseManagement;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
+    /// <summary>
+    /// Local Postgres on its default port. Development-only credentials: this
+    /// is never reached in a deployed environment, where the connection string
+    /// arrives from configuration.
+    /// </summary>
+    private const string LocalFallback =
+        "Host=localhost;Port=5432;Database=ExpenseManagement;Username=postgres;Password=postgres";
 
     public AppDbContext CreateDbContext(string[] args)
     {
@@ -32,11 +37,11 @@ public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
         var connectionString =
             configuration.GetConnectionString("DefaultConnection")
             ?? Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING")
-            ?? LocalDbFallback;
+            ?? LocalFallback;
 
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlServer(connectionString, sql =>
-                sql.MigrationsAssembly(typeof(AppDbContextFactory).Assembly.FullName))
+            .UseNpgsql(connectionString, npgsql =>
+                npgsql.MigrationsAssembly(typeof(AppDbContextFactory).Assembly.FullName))
             .Options;
 
         // The single-argument constructor leaves CurrentUserId null. That is

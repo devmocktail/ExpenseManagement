@@ -1,12 +1,12 @@
-# Local development stack: SQL Server + the API.
+# Local development stack: PostgreSQL + the API.
 #
 #   docker compose up --build
 #   API      -> http://localhost:5165
 #   Swagger  -> http://localhost:5165/swagger
-#   SQL      -> localhost,1433   (sa / the password in .env)
+#   Postgres -> localhost:5432  (postgres / the password in .env)
 #
 # Create a .env beside this file first:
-#   MSSQL_SA_PASSWORD=Your_Strong_Passw0rd!
+#   POSTGRES_PASSWORD=Your_Strong_Passw0rd!
 #   JWT_SECRET=at-least-32-characters-of-random-text
 #
 # NOTE: this file has never been executed. Docker was not installed on the
@@ -15,31 +15,27 @@
 
 services:
   db:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: postgres:17-alpine
     container_name: expense-db
     environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?set MSSQL_SA_PASSWORD in .env}
-      MSSQL_PID: Developer
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_USER: postgres
+      POSTGRES_DB: ExpenseManagement
     ports:
-      # Exposed so SSMS and EF tooling on the host can reach it. Drop this
+      # Exposed so psql and EF tooling on the host can reach it. Drop this
       # mapping if you only ever talk to the database from the API container.
-      - "1433:1433"
+      - "5432:5432"
     volumes:
-      - mssql-data:/var/opt/mssql
+      - pg-data:/var/lib/postgresql/data
     healthcheck:
-      # The API must not start until SQL Server is actually accepting queries.
-      # The container reports "running" long before that, and a migration fired
-      # into the gap fails with a connection error that looks like a config bug.
-      test:
-        [
-          "CMD-SHELL",
-          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1",
-        ]
-      interval: 10s
+      # The API must not start until Postgres is actually accepting queries.
+      # The container reports "running" before that, and a migration fired into
+      # the gap fails with a connection error that looks like a config bug.
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ExpenseManagement"]
+      interval: 5s
       timeout: 5s
       retries: 12
-      start_period: 30s
+      start_period: 15s
     restart: unless-stopped
 
   api:
@@ -57,7 +53,7 @@ services:
       # `db` is the compose service name, resolved on the compose network.
       # localhost inside this container is the container itself.
       ConnectionStrings__DefaultConnection: >-
-        Server=db,1433;Database=ExpenseManagement;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=true
+        Host=db;Port=5432;Database=ExpenseManagement;Username=postgres;Password=${POSTGRES_PASSWORD}
 
       Jwt__Secret: ${JWT_SECRET:?set JWT_SECRET in .env}
       Jwt__Issuer: ExpenseManagement.Api
@@ -78,5 +74,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  mssql-data:
+  pg-data:
   receipts:

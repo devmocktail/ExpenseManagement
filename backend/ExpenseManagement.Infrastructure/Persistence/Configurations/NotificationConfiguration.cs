@@ -14,18 +14,18 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
             // would push the next attempt into the past and spin the delivery worker.
             t.HasCheckConstraint(
                 "CK_Notifications_DeliveryAttempts_NonNegative",
-                "[DeliveryAttempts] >= 0");
+                "\"DeliveryAttempts\" >= 0");
 
             // IsRead and ReadAt are two representations of one fact, and the unread
             // badge trusts the flag while the UI timestamps from the column. Pinning
             // them together stops a partial update leaving a "read" row with no time.
             t.HasCheckConstraint(
                 "CK_Notifications_Read_Consistent",
-                "([IsRead] = 0 AND [ReadAt] IS NULL) OR ([IsRead] = 1 AND [ReadAt] IS NOT NULL)");
+                "(\"IsRead\" = false AND \"ReadAt\" IS NULL) OR (\"IsRead\" = true AND \"ReadAt\" IS NOT NULL)");
         });
 
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.Id).HasDefaultValueSql("NEWSEQUENTIALID()");
+        builder.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
 
         builder.Property(x => x.UserId).IsRequired();
 
@@ -82,7 +82,7 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
         builder.HasIndex(x => new { x.UserId, x.DeduplicationKey })
             .HasDatabaseName("UX_Notifications_UserId_DeduplicationKey")
             .IsUnique()
-            .HasFilter("[IsDeleted] = 0");
+            .HasFilter("\"IsDeleted\" = false");
 
         // The delivery worker asks "what is due, across every account", so UserId is
         // deliberately not the leading column. The filter keeps the index to the
@@ -90,7 +90,7 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
         // sent, so the queue scan stays cheap as the table grows without bound.
         builder.HasIndex(x => x.ScheduledFor)
             .HasDatabaseName("IX_Notifications_ScheduledFor")
-            .HasFilter("[SentAt] IS NULL AND [IsDeleted] = 0")
+            .HasFilter("\"SentAt\" IS NULL AND \"IsDeleted\" = false")
             .IncludeProperties(x => new { x.UserId, x.Type, x.DeliveryAttempts });
 
         // The in-app list and the unread badge: filter by user, split on read state,

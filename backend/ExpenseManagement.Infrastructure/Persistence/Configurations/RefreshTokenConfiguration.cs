@@ -17,11 +17,11 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
             // stolen token's validity window.
             t.HasCheckConstraint(
                 "CK_RefreshTokens_Revoked_Metadata",
-                "[RevokedAt] IS NOT NULL OR ([RevokedReason] IS NULL AND [ReplacedByTokenHash] IS NULL)");
+                "\"RevokedAt\" IS NOT NULL OR (\"RevokedReason\" IS NULL AND \"ReplacedByTokenHash\" IS NULL)");
         });
 
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.Id).HasDefaultValueSql("NEWSEQUENTIALID()");
+        builder.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
 
         builder.Property(x => x.UserId).IsRequired();
 

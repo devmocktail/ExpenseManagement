@@ -15,28 +15,28 @@ public class UserSettingsConfiguration : IEntityTypeConfiguration<UserSettings>
             // transaction or never fire at all, with no visible error.
             t.HasCheckConstraint(
                 "CK_UserSettings_BudgetWarningThreshold_Range",
-                "[BudgetWarningThreshold] BETWEEN 1 AND 100");
+                "\"BudgetWarningThreshold\" BETWEEN 1 AND 100");
 
             t.HasCheckConstraint(
                 "CK_UserSettings_BudgetCriticalThreshold_Range",
-                "[BudgetCriticalThreshold] BETWEEN 1 AND 100");
+                "\"BudgetCriticalThreshold\" BETWEEN 1 AND 100");
 
             // A critical alert that fires before the warning inverts the escalation:
             // the user would be told "critical" first and "warning" afterwards.
             t.HasCheckConstraint(
                 "CK_UserSettings_BudgetThresholds_Ordered",
-                "[BudgetCriticalThreshold] >= [BudgetWarningThreshold]");
+                "\"BudgetCriticalThreshold\" >= \"BudgetWarningThreshold\"");
 
             // Capped at 28, not 31: a period starting on the 29th-31st has no
             // anchor in February, and the period generator would have to silently
             // pick a different day for some months.
             t.HasCheckConstraint(
                 "CK_UserSettings_MonthStartDay_Range",
-                "[MonthStartDay] BETWEEN 1 AND 28");
+                "\"MonthStartDay\" BETWEEN 1 AND 28");
         });
 
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.Id).HasDefaultValueSql("NEWSEQUENTIALID()");
+        builder.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
 
         builder.Property(x => x.UserId).IsRequired();
 

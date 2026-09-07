@@ -3,8 +3,8 @@ using System;
 using ExpenseManagement.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -18,38 +18,37 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "10.0.11")
-                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("ExpenseManagement.Domain.Entities.ApplicationRole", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Description")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("Name")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("NormalizedName")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasColumnType("character varying(256)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("NormalizedName")
                         .IsUnique()
-                        .HasDatabaseName("RoleNameIndex")
-                        .HasFilter("[NormalizedName] IS NOT NULL");
+                        .HasDatabaseName("RoleNameIndex");
 
                     b.ToTable("Roles", (string)null);
                 });
@@ -58,104 +57,103 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<int>("AccessFailedCount")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("AvatarStorageKey")
                         .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasColumnType("character varying(400)");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Email")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasColumnType("character varying(256)");
 
                     b.Property<bool>("EmailConfirmed")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("character varying(200)");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<DateTimeOffset?>("LastLoginAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("LockoutEnabled")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<DateTimeOffset?>("LockoutEnd")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("NormalizedUserName")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("PasswordHash")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("PhoneNumber")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<bool>("PhoneNumberConfirmed")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("SecurityStamp")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<bool>("TwoFactorEnabled")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UserName")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasColumnType("character varying(256)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("DeletedAt")
                         .HasDatabaseName("IX_Users_DeletedAt")
-                        .HasFilter("[IsDeleted] = 1");
+                        .HasFilter("\"IsDeleted\" = true");
 
                     b.HasIndex("LastLoginAt")
                         .HasDatabaseName("IX_Users_LastLoginAt")
-                        .HasFilter("[IsDeleted] = 0");
+                        .HasFilter("\"IsDeleted\" = false");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("LastLoginAt"), new[] { "FullName", "CreatedAt" });
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("LastLoginAt"), new[] { "FullName", "CreatedAt" });
 
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("EmailIndex");
 
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
-                        .HasDatabaseName("UserNameIndex")
-                        .HasFilter("[NormalizedUserName] IS NOT NULL");
+                        .HasDatabaseName("UserNameIndex");
 
                     b.ToTable("Users", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Users_FullName_NotEmpty", "LEN(LTRIM([FullName])) > 0");
+                            t.HasCheckConstraint("CK_Users_FullName_NotEmpty", "length(btrim(\"FullName\")) > 0");
 
-                            t.HasCheckConstraint("CK_Users_SoftDelete_Consistent", "([IsDeleted] = 0 AND [DeletedAt] IS NULL) OR ([IsDeleted] = 1 AND [DeletedAt] IS NOT NULL)");
+                            t.HasCheckConstraint("CK_Users_SoftDelete_Consistent", "(\"IsDeleted\" = false AND \"DeletedAt\" IS NULL) OR (\"IsDeleted\" = true AND \"DeletedAt\" IS NOT NULL)");
                         });
                 });
 
@@ -163,44 +161,44 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
-                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Action")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("EntityId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("EntityName")
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("IpAddress")
                         .HasMaxLength(45)
-                        .HasColumnType("nvarchar(45)");
+                        .HasColumnType("character varying(45)");
 
                     b.Property<string>("MetadataJson")
                         .HasMaxLength(4000)
-                        .HasColumnType("nvarchar(4000)");
+                        .HasColumnType("character varying(4000)");
 
                     b.Property<bool>("Succeeded")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UserAgent")
                         .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasColumnType("character varying(400)");
 
                     b.Property<Guid?>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -208,7 +206,7 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                         .IsDescending(false, true)
                         .HasDatabaseName("IX_AuditLogs_Action_CreatedAt");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("Action", "CreatedAt"), new[] { "Succeeded", "IpAddress" });
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("Action", "CreatedAt"), new[] { "Succeeded", "IpAddress" });
 
                     b.HasIndex("UserId", "CreatedAt")
                         .IsDescending(false, true)
@@ -217,11 +215,11 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                     b.HasIndex("EntityName", "EntityId", "CreatedAt")
                         .IsDescending(false, false, true)
                         .HasDatabaseName("IX_AuditLogs_EntityName_EntityId_CreatedAt")
-                        .HasFilter("[EntityId] IS NOT NULL");
+                        .HasFilter("\"EntityId\" IS NOT NULL");
 
                     b.ToTable("AuditLogs", null, t =>
                         {
-                            t.HasCheckConstraint("CK_AuditLogs_AppendOnly", "[UpdatedAt] IS NULL");
+                            t.HasCheckConstraint("CK_AuditLogs_AppendOnly", "\"UpdatedAt\" IS NULL");
                         });
                 });
 
@@ -229,78 +227,78 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
-                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<decimal>("Amount")
-                        .HasColumnType("decimal(18,2)");
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<Guid?>("CategoryId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("CriticalThreshold")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("CurrencyCode")
                         .IsRequired()
                         .HasMaxLength(3)
-                        .HasColumnType("nchar(3)")
+                        .HasColumnType("character(3)")
                         .IsFixedLength();
 
                     b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset>("EndDate")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
+                        .HasColumnType("boolean")
                         .HasDefaultValue(false);
 
                     b.Property<bool>("IsRecurring")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<int?>("LastNotifiedThreshold")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<byte>("Period")
-                        .HasColumnType("tinyint");
+                        .HasColumnType("smallint");
 
                     b.Property<DateTimeOffset>("StartDate")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<int?>("WarningThreshold")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CategoryId")
                         .HasDatabaseName("IX_Budgets_CategoryId")
-                        .HasFilter("[CategoryId] IS NOT NULL");
+                        .HasFilter("\"CategoryId\" IS NOT NULL");
 
                     b.HasIndex("UserId", "EndDate")
                         .HasDatabaseName("IX_Budgets_UserId_EndDate_Active")
-                        .HasFilter("[IsActive] = 1 AND [IsDeleted] = 0");
+                        .HasFilter("\"IsActive\" = true AND \"IsDeleted\" = false");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId", "EndDate"), new[] { "CategoryId", "Amount", "LastNotifiedThreshold" });
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId", "EndDate"), new[] { "CategoryId", "Amount", "LastNotifiedThreshold" });
 
                     b.HasIndex("UserId", "CategoryId", "StartDate")
                         .HasDatabaseName("IX_Budgets_UserId_CategoryId_StartDate");
@@ -308,29 +306,29 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId", "Period", "StartDate")
                         .IsUnique()
                         .HasDatabaseName("UX_Budgets_UserId_Period_StartDate_Overall")
-                        .HasFilter("[CategoryId] IS NULL AND [IsDeleted] = 0");
+                        .HasFilter("\"CategoryId\" IS NULL AND \"IsDeleted\" = false");
 
                     b.HasIndex("UserId", "StartDate", "EndDate")
                         .HasDatabaseName("IX_Budgets_UserId_StartDate_EndDate");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId", "StartDate", "EndDate"), new[] { "Amount", "CategoryId", "IsActive", "IsDeleted" });
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId", "StartDate", "EndDate"), new[] { "Amount", "CategoryId", "IsActive", "IsDeleted" });
 
                     b.HasIndex("UserId", "CategoryId", "Period", "StartDate")
                         .IsUnique()
                         .HasDatabaseName("UX_Budgets_UserId_CategoryId_Period_StartDate")
-                        .HasFilter("[CategoryId] IS NOT NULL AND [IsDeleted] = 0");
+                        .HasFilter("\"CategoryId\" IS NOT NULL AND \"IsDeleted\" = false");
 
                     b.ToTable("Budgets", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Budgets_Amount_Positive", "[Amount] > 0");
+                            t.HasCheckConstraint("CK_Budgets_Amount_Positive", "\"Amount\" > 0");
 
-                            t.HasCheckConstraint("CK_Budgets_LastNotifiedThreshold_NonNegative", "[LastNotifiedThreshold] IS NULL OR [LastNotifiedThreshold] >= 0");
+                            t.HasCheckConstraint("CK_Budgets_LastNotifiedThreshold_NonNegative", "\"LastNotifiedThreshold\" IS NULL OR \"LastNotifiedThreshold\" >= 0");
 
-                            t.HasCheckConstraint("CK_Budgets_Thresholds_Ordered", "[WarningThreshold] IS NULL OR [CriticalThreshold] IS NULL OR [WarningThreshold] < [CriticalThreshold]");
+                            t.HasCheckConstraint("CK_Budgets_Thresholds_Ordered", "\"WarningThreshold\" IS NULL OR \"CriticalThreshold\" IS NULL OR \"WarningThreshold\" < \"CriticalThreshold\"");
 
-                            t.HasCheckConstraint("CK_Budgets_Thresholds_Range", "([WarningThreshold] IS NULL OR ([WarningThreshold] BETWEEN 1 AND 100)) AND ([CriticalThreshold] IS NULL OR ([CriticalThreshold] BETWEEN 1 AND 100))");
+                            t.HasCheckConstraint("CK_Budgets_Thresholds_Range", "(\"WarningThreshold\" IS NULL OR (\"WarningThreshold\" BETWEEN 1 AND 100)) AND (\"CriticalThreshold\" IS NULL OR (\"CriticalThreshold\" BETWEEN 1 AND 100))");
 
-                            t.HasCheckConstraint("CK_Budgets_Window_Ordered", "[EndDate] > [StartDate]");
+                            t.HasCheckConstraint("CK_Budgets_Window_Ordered", "\"EndDate\" > \"StartDate\"");
                         });
                 });
 
@@ -338,64 +336,64 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
-                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Color")
                         .IsRequired()
                         .HasMaxLength(7)
-                        .HasColumnType("nchar(7)")
+                        .HasColumnType("character(7)")
                         .IsFixedLength();
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Icon")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasColumnType("character varying(50)");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsSystem")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<int>("SortOrder")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<byte>("Type")
-                        .HasColumnType("tinyint");
+                        .HasColumnType("smallint");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
                     b.HasIndex("UserId", "Name", "Type")
                         .IsUnique()
                         .HasDatabaseName("UX_Categories_UserId_Name_Type")
-                        .HasFilter("[IsDeleted] = 0");
+                        .HasFilter("\"IsDeleted\" = false");
 
                     b.HasIndex("UserId", "Type", "SortOrder")
                         .HasDatabaseName("IX_Categories_UserId_Type_SortOrder");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId", "Type", "SortOrder"), new[] { "Name", "Icon", "Color", "IsSystem", "IsDeleted" });
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId", "Type", "SortOrder"), new[] { "Name", "Icon", "Color", "IsSystem", "IsDeleted" });
 
                     b.ToTable("Categories", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Categories_Color_Hex", "[Color] LIKE '[#][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]'");
+                            t.HasCheckConstraint("CK_Categories_Color_Hex", "\"Color\" ~ '^#[0-9A-Fa-f]{6}$'");
                         });
                 });
 
@@ -403,48 +401,48 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
-                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("AppVersion")
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
+                        .HasColumnType("character varying(20)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("DeviceName")
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTimeOffset?>("InvalidatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<DateTimeOffset>("LastSeenAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<byte>("Platform")
-                        .HasColumnType("tinyint");
+                        .HasColumnType("smallint");
 
                     b.Property<string>("Token")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("character varying(200)");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
                     b.HasIndex("LastSeenAt")
                         .HasDatabaseName("IX_DeviceTokens_LastSeenAt")
-                        .HasFilter("[IsActive] = 1");
+                        .HasFilter("\"IsActive\" = true");
 
                     b.HasIndex("Token")
                         .IsUnique()
@@ -453,11 +451,11 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId", "IsActive")
                         .HasDatabaseName("IX_DeviceTokens_UserId_IsActive");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId", "IsActive"), new[] { "Token", "Platform" });
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId", "IsActive"), new[] { "Token", "Platform" });
 
                     b.ToTable("DeviceTokens", null, t =>
                         {
-                            t.HasCheckConstraint("CK_DeviceTokens_Invalidated_Inactive", "[InvalidatedAt] IS NULL OR [IsActive] = 0");
+                            t.HasCheckConstraint("CK_DeviceTokens_Invalidated_Inactive", "\"InvalidatedAt\" IS NULL OR \"IsActive\" = false");
                         });
                 });
 
@@ -465,89 +463,89 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
-                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Body")
                         .IsRequired()
                         .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("DataJson")
                         .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
+                        .HasColumnType("character varying(2000)");
 
                     b.Property<string>("DeduplicationKey")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("character varying(200)");
 
                     b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("DeliveryAttempts")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsRead")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("LastDeliveryError")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("character varying(500)");
 
                     b.Property<DateTimeOffset?>("ReadAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset>("ScheduledFor")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset?>("SentAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("character varying(200)");
 
                     b.Property<byte>("Type")
-                        .HasColumnType("tinyint");
+                        .HasColumnType("smallint");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
                     b.HasIndex("ScheduledFor")
                         .HasDatabaseName("IX_Notifications_ScheduledFor")
-                        .HasFilter("[SentAt] IS NULL AND [IsDeleted] = 0");
+                        .HasFilter("\"SentAt\" IS NULL AND \"IsDeleted\" = false");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("ScheduledFor"), new[] { "UserId", "Type", "DeliveryAttempts" });
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("ScheduledFor"), new[] { "UserId", "Type", "DeliveryAttempts" });
 
                     b.HasIndex("UserId", "DeduplicationKey")
                         .IsUnique()
                         .HasDatabaseName("UX_Notifications_UserId_DeduplicationKey")
-                        .HasFilter("[IsDeleted] = 0");
+                        .HasFilter("\"IsDeleted\" = false");
 
                     b.HasIndex("UserId", "IsRead", "CreatedAt")
                         .IsDescending(false, false, true)
                         .HasDatabaseName("IX_Notifications_UserId_IsRead_CreatedAt");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId", "IsRead", "CreatedAt"), new[] { "Title", "Type", "SentAt", "IsDeleted" });
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId", "IsRead", "CreatedAt"), new[] { "Title", "Type", "SentAt", "IsDeleted" });
 
                     b.ToTable("Notifications", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Notifications_DeliveryAttempts_NonNegative", "[DeliveryAttempts] >= 0");
+                            t.HasCheckConstraint("CK_Notifications_DeliveryAttempts_NonNegative", "\"DeliveryAttempts\" >= 0");
 
-                            t.HasCheckConstraint("CK_Notifications_Read_Consistent", "([IsRead] = 0 AND [ReadAt] IS NULL) OR ([IsRead] = 1 AND [ReadAt] IS NOT NULL)");
+                            t.HasCheckConstraint("CK_Notifications_Read_Consistent", "(\"IsRead\" = false AND \"ReadAt\" IS NULL) OR (\"IsRead\" = true AND \"ReadAt\" IS NOT NULL)");
                         });
                 });
 
@@ -555,50 +553,50 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
-                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("ContentType")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("FileName")
                         .IsRequired()
                         .HasMaxLength(260)
-                        .HasColumnType("nvarchar(260)");
+                        .HasColumnType("character varying(260)");
 
                     b.Property<long>("FileSizeBytes")
                         .HasColumnType("bigint");
 
                     b.Property<int?>("Height")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("StorageKey")
                         .IsRequired()
                         .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasColumnType("character varying(400)");
 
                     b.Property<Guid>("TransactionId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<int?>("Width")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -612,11 +610,11 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId", "TransactionId")
                         .HasDatabaseName("IX_Receipts_UserId_TransactionId");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId", "TransactionId"), new[] { "FileName", "ContentType", "FileSizeBytes", "IsDeleted" });
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId", "TransactionId"), new[] { "FileName", "ContentType", "FileSizeBytes", "IsDeleted" });
 
                     b.ToTable("Receipts", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Receipts_FileSizeBytes_Range", "[FileSizeBytes] > 0 AND [FileSizeBytes] <= 10485760");
+                            t.HasCheckConstraint("CK_Receipts_FileSizeBytes_Range", "\"FileSizeBytes\" > 0 AND \"FileSizeBytes\" <= 10485760");
                         });
                 });
 
@@ -624,81 +622,81 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
-                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<decimal>("Amount")
-                        .HasColumnType("decimal(18,2)");
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<Guid>("CategoryId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CurrencyCode")
                         .IsRequired()
                         .HasMaxLength(3)
-                        .HasColumnType("nchar(3)")
+                        .HasColumnType("character(3)")
                         .IsFixedLength();
 
                     b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("character varying(500)");
 
                     b.Property<DateTimeOffset?>("EndDate")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<byte>("Frequency")
-                        .HasColumnType("tinyint");
+                        .HasColumnType("smallint");
 
                     b.Property<int>("Interval")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsPaused")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<DateTimeOffset?>("LastRunDate")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Merchant")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTimeOffset>("NextRunDate")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("OccurrencesGenerated")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<byte>("PaymentMethod")
-                        .HasColumnType("tinyint");
+                        .HasColumnType("smallint");
 
                     b.Property<int>("ReminderDaysBefore")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<DateTimeOffset>("StartDate")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<byte>("Type")
-                        .HasColumnType("tinyint");
+                        .HasColumnType("smallint");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -707,20 +705,20 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("NextRunDate")
                         .HasDatabaseName("IX_RecurringTransactions_NextRunDate")
-                        .HasFilter("[IsPaused] = 0 AND [IsDeleted] = 0");
+                        .HasFilter("\"IsPaused\" = false AND \"IsDeleted\" = false");
 
                     b.HasIndex("UserId", "IsPaused")
                         .HasDatabaseName("IX_RecurringTransactions_UserId_IsPaused");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId", "IsPaused"), new[] { "Name", "Amount", "NextRunDate", "Frequency", "CategoryId", "IsDeleted" });
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId", "IsPaused"), new[] { "Name", "Amount", "NextRunDate", "Frequency", "CategoryId", "IsDeleted" });
 
                     b.ToTable("RecurringTransactions", null, t =>
                         {
-                            t.HasCheckConstraint("CK_RecurringTransactions_Amount_Positive", "[Amount] > 0");
+                            t.HasCheckConstraint("CK_RecurringTransactions_Amount_Positive", "\"Amount\" > 0");
 
-                            t.HasCheckConstraint("CK_RecurringTransactions_Interval_Positive", "[Interval] >= 1");
+                            t.HasCheckConstraint("CK_RecurringTransactions_Interval_Positive", "\"Interval\" >= 1");
 
-                            t.HasCheckConstraint("CK_RecurringTransactions_ReminderDaysBefore_Range", "[ReminderDaysBefore] >= 0 AND [ReminderDaysBefore] <= 30");
+                            t.HasCheckConstraint("CK_RecurringTransactions_ReminderDaysBefore_Range", "\"ReminderDaysBefore\" >= 0 AND \"ReminderDaysBefore\" <= 30");
                         });
                 });
 
@@ -728,47 +726,47 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
-                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedByIp")
                         .HasMaxLength(45)
-                        .HasColumnType("nvarchar(45)");
+                        .HasColumnType("character varying(45)");
 
                     b.Property<DateTimeOffset>("ExpiresAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("FamilyId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("ReplacedByTokenHash")
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTimeOffset?>("RevokedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("RevokedReason")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("TokenHash")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UserAgent")
                         .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasColumnType("character varying(400)");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -782,11 +780,11 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId", "ExpiresAt")
                         .HasDatabaseName("IX_RefreshTokens_UserId_ExpiresAt");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId", "ExpiresAt"), new[] { "RevokedAt", "FamilyId" });
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId", "ExpiresAt"), new[] { "RevokedAt", "FamilyId" });
 
                     b.ToTable("RefreshTokens", null, t =>
                         {
-                            t.HasCheckConstraint("CK_RefreshTokens_Revoked_Metadata", "[RevokedAt] IS NOT NULL OR ([RevokedReason] IS NULL AND [ReplacedByTokenHash] IS NULL)");
+                            t.HasCheckConstraint("CK_RefreshTokens_Revoked_Metadata", "\"RevokedAt\" IS NOT NULL OR (\"RevokedReason\" IS NULL AND \"ReplacedByTokenHash\" IS NULL)");
                         });
                 });
 
@@ -794,63 +792,63 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
-                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<decimal>("Amount")
-                        .HasColumnType("decimal(18,2)");
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<Guid>("CategoryId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("ClientReference")
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CurrencyCode")
                         .IsRequired()
                         .HasMaxLength(3)
-                        .HasColumnType("nchar(3)")
+                        .HasColumnType("character(3)")
                         .IsFixedLength();
 
                     b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("character varying(500)");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Merchant")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("Notes")
                         .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
+                        .HasColumnType("character varying(2000)");
 
                     b.Property<byte>("PaymentMethod")
-                        .HasColumnType("tinyint");
+                        .HasColumnType("smallint");
 
                     b.Property<Guid?>("RecurringTransactionId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("TransactionDate")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<byte>("Type")
-                        .HasColumnType("tinyint");
+                        .HasColumnType("smallint");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -859,18 +857,18 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("RecurringTransactionId")
                         .HasDatabaseName("IX_Transactions_RecurringTransactionId")
-                        .HasFilter("[RecurringTransactionId] IS NOT NULL");
+                        .HasFilter("\"RecurringTransactionId\" IS NOT NULL");
 
                     b.HasIndex("UserId", "ClientReference")
                         .IsUnique()
                         .HasDatabaseName("UX_Transactions_UserId_ClientReference")
-                        .HasFilter("[ClientReference] IS NOT NULL AND [IsDeleted] = 0");
+                        .HasFilter("\"ClientReference\" IS NOT NULL AND \"IsDeleted\" = false");
 
                     b.HasIndex("UserId", "TransactionDate")
                         .IsDescending(false, true)
                         .HasDatabaseName("IX_Transactions_UserId_TransactionDate");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId", "TransactionDate"), new[] { "Amount", "Type", "CategoryId", "Merchant", "IsDeleted" });
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId", "TransactionDate"), new[] { "Amount", "Type", "CategoryId", "Merchant", "IsDeleted" });
 
                     b.HasIndex("UserId", "CategoryId", "TransactionDate")
                         .HasDatabaseName("IX_Transactions_UserId_CategoryId_TransactionDate");
@@ -880,7 +878,7 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
 
                     b.ToTable("Transactions", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Transactions_Amount_Positive", "[Amount] > 0");
+                            t.HasCheckConstraint("CK_Transactions_Amount_Positive", "\"Amount\" > 0");
                         });
                 });
 
@@ -888,57 +886,57 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
-                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<bool>("BiometricEnabled")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("BudgetAlertsEnabled")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<int>("BudgetCriticalThreshold")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<int>("BudgetWarningThreshold")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CurrencyCode")
                         .IsRequired()
                         .HasMaxLength(3)
-                        .HasColumnType("nchar(3)")
+                        .HasColumnType("character(3)")
                         .IsFixedLength();
 
                     b.Property<string>("Locale")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
+                        .HasColumnType("character varying(20)");
 
                     b.Property<int>("MonthStartDay")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<bool>("MonthlySummaryEnabled")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("RecurringRemindersEnabled")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<byte>("Theme")
-                        .HasColumnType("tinyint");
+                        .HasColumnType("smallint");
 
                     b.Property<string>("TimeZoneId")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("datetimeoffset");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -946,17 +944,17 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("UX_UserSettings_UserId");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId"), new[] { "CurrencyCode", "Locale", "TimeZoneId" });
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId"), new[] { "CurrencyCode", "Locale", "TimeZoneId" });
 
                     b.ToTable("UserSettings", null, t =>
                         {
-                            t.HasCheckConstraint("CK_UserSettings_BudgetCriticalThreshold_Range", "[BudgetCriticalThreshold] BETWEEN 1 AND 100");
+                            t.HasCheckConstraint("CK_UserSettings_BudgetCriticalThreshold_Range", "\"BudgetCriticalThreshold\" BETWEEN 1 AND 100");
 
-                            t.HasCheckConstraint("CK_UserSettings_BudgetThresholds_Ordered", "[BudgetCriticalThreshold] >= [BudgetWarningThreshold]");
+                            t.HasCheckConstraint("CK_UserSettings_BudgetThresholds_Ordered", "\"BudgetCriticalThreshold\" >= \"BudgetWarningThreshold\"");
 
-                            t.HasCheckConstraint("CK_UserSettings_BudgetWarningThreshold_Range", "[BudgetWarningThreshold] BETWEEN 1 AND 100");
+                            t.HasCheckConstraint("CK_UserSettings_BudgetWarningThreshold_Range", "\"BudgetWarningThreshold\" BETWEEN 1 AND 100");
 
-                            t.HasCheckConstraint("CK_UserSettings_MonthStartDay_Range", "[MonthStartDay] BETWEEN 1 AND 28");
+                            t.HasCheckConstraint("CK_UserSettings_MonthStartDay_Range", "\"MonthStartDay\" BETWEEN 1 AND 28");
                         });
                 });
 
@@ -964,18 +962,18 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ClaimType")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ClaimValue")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("RoleId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -988,18 +986,18 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ClaimType")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ClaimValue")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -1011,16 +1009,16 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
                 {
                     b.Property<string>("LoginProvider")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ProviderKey")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ProviderDisplayName")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("LoginProvider", "ProviderKey");
 
@@ -1032,10 +1030,10 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
                 {
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("RoleId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("UserId", "RoleId");
 
@@ -1047,16 +1045,16 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
                 {
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("LoginProvider")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Name")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Value")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
@@ -1173,7 +1171,8 @@ namespace ExpenseManagement.Infrastructure.Persistence.Migrations
 
                     b.HasOne("ExpenseManagement.Domain.Entities.RecurringTransaction", "RecurringTransaction")
                         .WithMany("GeneratedTransactions")
-                        .HasForeignKey("RecurringTransactionId");
+                        .HasForeignKey("RecurringTransactionId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("ExpenseManagement.Domain.Entities.ApplicationUser", "User")
                         .WithMany("Transactions")

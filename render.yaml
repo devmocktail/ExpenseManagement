@@ -1,8 +1,9 @@
 # Render blueprint for the API.
 #
-# Render has no managed SQL Server, so DATABASE_URL is not provisioned here —
-# ConnectionStrings__DefaultConnection must point at a SQL Server you host
-# elsewhere (Azure SQL is the usual answer). See docs/deployment.md.
+# The database lives on Supabase, so nothing is provisioned here —
+# ConnectionStrings__DefaultConnection points at it. Use Supabase's SESSION
+# pooler on port 5432, not the transaction pooler on 6543: the latter cannot
+# hold the prepared statements Npgsql relies on. See docs/supabase.md.
 #
 # Values marked sync:false are set once in the Render dashboard and never
 # committed. Everything here is safe to read publicly.
@@ -56,7 +57,8 @@ services:
       - key: Jwt__Secret
         sync: false
 
-      # Set in the dashboard. Must include Encrypt=True for Azure SQL.
+      # Set in the dashboard. Npgsql key/value form, not Supabase's URI, and
+      # must include SSL Mode=Require.
       - key: ConnectionStrings__DefaultConnection
         sync: false
 
