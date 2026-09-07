@@ -293,6 +293,14 @@ try
     // Startup work
     // ---------------------------------------------------------------------
 
+    // Startup lifecycle messages carry an explicit SourceContext so they match
+    // the "ExpenseManagement" minimum-level override. Serilog's static Log has
+    // no SourceContext of its own, so in Production - where the default level is
+    // Warning - plain Log.Information calls are silently dropped, and the
+    // operator watching a deploy sees nothing between "container started" and
+    // whatever fails next.
+    var startupLog = Log.ForContext("SourceContext", "ExpenseManagement.Startup");
+
     await using (var scope = app.Services.CreateAsyncScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -312,20 +320,56 @@ try
         var migrateOnStartup = app.Environment.IsDevelopment()
             || builder.Configuration.GetValue("Database:MigrateOnStartup", false);
 
-        if (migrateOnStartup)
+        // Everything that touches the database at startup is wrapped, because
+        // the raw failure is close to unreadable: EF surfaces a connectivity
+        // problem as thirty frames of SqlClient internals whose top line says
+        // nothing about configuration. What an operator needs is the one
+        // sentence naming what to fix.
+        try
         {
-            Log.Information("Applying database migrations on startup...");
-            await db.Database.MigrateAsync();
-            Log.Information("Migrations are up to date.");
-        }
+            if (migrateOnStartup)
+            {
+                startupLog.Information("Applying database migrations on startup...");
+                await db.Database.MigrateAsync();
+                startupLog.Information("Migrations are up to date.");
+            }
 
-        var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
-        await seeder.SeedAsync(CancellationToken.None);
+            var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+            await seeder.SeedAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(
+                """
+                The API could not reach its database, so it is stopping rather than
+                serving requests it cannot answer.
+
+                  {Message}
+
+                Check, in this order:
+                  1. ConnectionStrings__DefaultConnection is set for this environment.
+                  2. The server, database name and credentials in it are correct.
+                  3. The database's firewall allows this host's outbound address.
+                  4. Encrypt=True is present (Azure SQL requires it).
+                  5. On Azure SQL serverless, whether the database is paused - the
+                     first connection after an auto-pause can take up to a minute,
+                     so raise Connection Timeout in the connection string.
+
+                Full exception follows.
+                """,
+                ex.Message);
+
+            // Rethrown so the outer handler logs the stack and the process exits
+            // non-zero. A container that starts "successfully" without a database
+            // just moves the failure to every request.
+            throw;
+        }
     }
 
-    Log.Information(
-        "ExpenseManagement API started in {Environment}",
-        app.Environment.EnvironmentName);
+    startupLog.Information(
+        "ExpenseManagement API started in {Environment}, listening on {Urls}",
+        app.Environment.EnvironmentName,
+        string.Join(", ", app.Urls));
 
     await app.RunAsync();
 }

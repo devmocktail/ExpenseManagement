@@ -37,11 +37,38 @@ public static class DependencyInjection
         IConfiguration configuration,
         IHostEnvironment environment)
     {
-        var connectionString =
-            configuration.GetConnectionString("DefaultConnection")
-            ?? throw new InvalidOperationException(
-                "ConnectionStrings:DefaultConnection is not configured. Set it in appsettings for this " +
-                "environment or supply ConnectionStrings__DefaultConnection as an environment variable.");
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
+
+        // IsNullOrWhiteSpace, not a null check.
+        //
+        // A `?? throw` looks like fail-fast and is not: a config file carrying
+        // `"DefaultConnection": ""` as a placeholder returns an empty string,
+        // which is not null, so the guard passes. UseSqlServer accepts it
+        // happily and the failure surfaces much later, on the first query, as
+        // "The ConnectionString property has not been initialized" over a wall
+        // of SqlClient stack frames that says nothing about configuration.
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                """
+                ConnectionStrings:DefaultConnection is not configured.
+
+                This application requires SQL Server. Set the connection string
+                for the environment it is running in:
+
+                  * Locally      appsettings.Development.json
+                  * Container    -e ConnectionStrings__DefaultConnection="..."
+                  * Render/PaaS  add ConnectionStrings__DefaultConnection in the
+                                 dashboard's environment settings
+
+                The double underscore is the nesting separator: it binds to the
+                ConnectionStrings:DefaultConnection key.
+
+                Note that Render provisions PostgreSQL, not SQL Server, so this
+                must point at a SQL Server you host elsewhere - Azure SQL is the
+                usual answer. See docs/deployment.md.
+                """);
+        }
 
         services.AddDbContext<AppDbContext>(options =>
         {
