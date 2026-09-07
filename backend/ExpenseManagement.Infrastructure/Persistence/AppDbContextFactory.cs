@@ -31,6 +31,11 @@ public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
             .SetBasePath(basePath)
             .AddJsonFile("appsettings.json", optional: true)
             .AddJsonFile("appsettings.Development.json", optional: true)
+            // The same gitignored override the running app reads. Without it,
+            // `dotnet ef database update` would target the local database while
+            // the app targeted the hosted one -- migrations applied to the wrong
+            // place, with nothing to indicate it.
+            .AddJsonFile("appsettings.Local.json", optional: true)
             .AddEnvironmentVariables()
             .Build();
 

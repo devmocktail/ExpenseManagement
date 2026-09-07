@@ -26,6 +26,19 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
 
+    // A gitignored per-developer override, loaded after the environment files so
+    // it wins over them, and before environment variables so a deployed host
+    // still wins over it.
+    //
+    // This is where a real connection string belongs while working locally --
+    // a hosted Supabase or Azure database, say. appsettings.Development.json is
+    // committed, so a password put there is published to the repository the
+    // moment it is pushed, and git keeps it in history even after it is deleted.
+    //
+    // `dotnet user-secrets` is the other option and is better still, since it
+    // stores outside the repository entirely. Both work; see docs/supabase.md.
+    builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
     builder.Host.UseSerilog((context, services, configuration) => configuration
         .ReadFrom.Configuration(context.Configuration)
         .ReadFrom.Services(services)

@@ -79,6 +79,58 @@ dashboard set:
 | `Seed__DemoUser` | `false` |
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
 
+## Where to put the connection string locally
+
+Three places work. All three keep it out of the repository.
+
+**`appsettings.Local.json`** — copy
+`backend/ExpenseManagement.Api/appsettings.Local.json.example`, drop the
+`.example`, fill it in. Gitignored, and loaded after the environment-specific
+appsettings so it overrides them, but before environment variables so a
+deployed host still wins.
+
+**`dotnet user-secrets`** — better still, because it stores outside the
+repository entirely and so cannot be committed even by accident:
+
+```bash
+cd backend/ExpenseManagement.Api
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=...;Password=..."
+dotnet user-secrets set "Jwt:Secret" "$(openssl rand -base64 48)"
+```
+
+Note the **colon**, not the double underscore. The double underscore form exists
+only because a colon is not a legal character in an environment variable name.
+
+**An environment variable** — what a deployed host uses:
+
+```bash
+export ConnectionStrings__DefaultConnection="Host=...;Password=..."
+```
+
+### Not appsettings.Development.json
+
+That file is **committed**. A password put there is published the moment you
+push, and git keeps it in history after you delete it, so the only real remedy
+is rotating the credential. It holds a local Postgres connection with default
+credentials on purpose — nothing that is a secret anywhere.
+
+Supabase's own .NET snippet shows `appsettings.json` because it cannot know
+whether your repository is public. Yours is.
+
+### And skip the package commands in that snippet
+
+The snippet assumes a new, empty project:
+
+```
+dotnet add package Npgsql --version 9.0.5                    # DOWNGRADE - do not run
+dotnet add package Microsoft.Extensions.Configuration.Json   # already present
+```
+
+This project already resolves **Npgsql 10.0.3** through
+`Npgsql.EntityFrameworkCore.PostgreSQL`. Pinning 9.0.5 forces a downgrade and
+NuGet fails the build with NU1605. `Configuration.Json` arrives via the
+framework reference.
+
 ## Applying the schema
 
 With `Database__MigrateOnStartup=true` the container migrates itself on first

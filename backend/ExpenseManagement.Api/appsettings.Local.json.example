@@ -1,0 +1,39 @@
+{
+  "//": [
+    "Copy this file to appsettings.Local.json and put your real values in it.",
+    "",
+    "appsettings.Local.json is gitignored, so it is the safe place for a real",
+    "connection string while working locally. appsettings.Development.json is",
+    "COMMITTED - a password put there is published the moment you push, and git",
+    "keeps it in history even after you delete it.",
+    "",
+    "This file is loaded after the environment-specific appsettings and before",
+    "environment variables, so it overrides the committed defaults while a",
+    "deployed host still overrides it.",
+    "",
+    "`dotnet user-secrets` is the alternative and is better still, since it",
+    "stores outside the repository entirely:",
+    "",
+    "  cd backend/ExpenseManagement.Api",
+    "  dotnet user-secrets set \"ConnectionStrings:DefaultConnection\" \"Host=...\"",
+    "  dotnet user-secrets set \"Jwt:Secret\" \"$(openssl rand -base64 48)\"",
+    "",
+    "Note the COLON there, not the double underscore. The double underscore form",
+    "is only for environment variables, where a colon is not a legal character."
+  ],
+
+  "ConnectionStrings": {
+    "//": "Supabase gives you this from Connect -> Session pooler -> .NET. Port 5432, not 6543.",
+    "DefaultConnection": "Host=aws-0-<region>.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.<project-ref>;Password=<your-password>;SSL Mode=Require;Trust Server Certificate=true"
+  },
+
+  "Jwt": {
+    "//": "Only needed here if you want a different key from the development one. 32 characters minimum, or startup fails.",
+    "Secret": ""
+  },
+
+  "Seed": {
+    "//": "Pointing local development at a SHARED database? Turn this off, or the seeder writes a known-password demo account into it.",
+    "DemoUser": false
+  }
+}
