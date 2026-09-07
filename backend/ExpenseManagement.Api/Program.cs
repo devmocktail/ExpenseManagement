@@ -238,18 +238,26 @@ try
     //   * RemoteIpAddress is the proxy's, so the per-IP rate limiter puts every
     //     user on the planet into one bucket, and the audit trail records the
     //     proxy for every event.
-    app.UseForwardedHeaders(new ForwardedHeadersOptions
+    var forwardedHeaderOptions = new ForwardedHeadersOptions
     {
         ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    };
 
-        // The known-network lists default to loopback only, which rejects the
-        // headers from a PaaS proxy on an arbitrary internal address. Clearing
-        // them means we trust whatever fronts us — correct when the platform is
-        // the only route in, and NOT correct if this container is ever exposed
-        // directly, because then a client could forge its own X-Forwarded-For.
-        KnownNetworks = { },
-        KnownProxies = { },
-    });
+    // The known-network lists default to loopback only, which REJECTS headers
+    // from a PaaS proxy sitting on an arbitrary internal address — leaving the
+    // scheme and client IP exactly as wrong as if this middleware were absent.
+    //
+    // These have to be .Clear()ed. An object-initializer `KnownNetworks = { }`
+    // looks like it empties the list but is collection-initializer syntax: it
+    // calls Add() for each of its zero elements and leaves the defaults intact.
+    //
+    // Trusting any upstream is correct when the platform's proxy is the only
+    // route to this container, and NOT correct if it is ever exposed directly —
+    // a client could then forge X-Forwarded-For and defeat the per-IP limiter.
+    forwardedHeaderOptions.KnownIPNetworks.Clear();
+    forwardedHeaderOptions.KnownProxies.Clear();
+
+    app.UseForwardedHeaders(forwardedHeaderOptions);
 
     if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
     {

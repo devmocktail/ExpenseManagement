@@ -1,0 +1,104 @@
+name: Backend CI
+
+# Builds the backend from a clean checkout on every push and pull request.
+#
+# This workflow exists because of a specific failure: three unanchored
+# .gitignore patterns silently excluded real source directories, so every local
+# build passed while the Docker build failed with a missing-namespace error.
+# A checkout only ever contains what git tracks, which is precisely what makes
+# this the right place to catch that class of bug — a developer's working
+# directory can never notice it.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - '.github/workflows/backend-ci.yml'
+  workflow_dispatch:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        working-directory: backend
+        run: dotnet restore
+
+      # Warnings are errors here but not locally, on purpose: a warning that
+      # nobody has to act on is a warning everybody learns to scroll past.
+      - name: Build
+        working-directory: backend
+        run: dotnet build --no-restore --configuration Release -warnaserror
+
+      - name: Test
+        working-directory: backend
+        run: dotnet test --no-build --configuration Release --verbosity normal
+
+      # The step that would have caught the bug this workflow was written for.
+      # It runs exactly what the container runs, against exactly what git
+      # tracks.
+      - name: Publish (mirrors the Dockerfile)
+        working-directory: backend
+        run: |
+          dotnet publish ExpenseManagement.Api/ExpenseManagement.Api.csproj \
+            --configuration Release \
+            --output ./_publish \
+            --no-restore \
+            -p:UseAppHost=false
+
+      - name: Verify the entrypoint assembly was produced
+        working-directory: backend
+        run: |
+          # The Dockerfile's CMD invokes this by name. A publish that "succeeds"
+          # without emitting it would still fail at container start, so assert
+          # the artifact rather than trusting the exit code.
+          test -f ./_publish/ExpenseManagement.Api.dll
+          echo "entrypoint present:"
+          ls -la ./_publish/ExpenseManagement.Api.dll
+
+  docker:
+    name: Docker image builds
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Built but not pushed. The point is to prove the image assembles from a
+      # clean checkout — the same thing Render does — not to publish anything.
+      # This also exercises .dockerignore, which had the same over-broad
+      # patterns as .gitignore and would have stripped source from the build
+      # context independently.
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

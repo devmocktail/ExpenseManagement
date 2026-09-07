@@ -41,7 +41,12 @@ RUN dotnet publish ExpenseManagement.Api/ExpenseManagement.Api.csproj \
     --no-restore \
     # The apphost is a native launcher we never use — the entrypoint invokes
     # `dotnet ExpenseManagement.Api.dll` directly.
-    /p:UseAppHost=false
+    #
+    # `-p:` rather than `/p:`: both are valid MSBuild, but a leading slash is
+    # rewritten into a Windows path by MSYS shells, so the dash form is the one
+    # that behaves identically whether this command is run here or pasted into
+    # a developer's Git Bash to reproduce a build failure.
+    -p:UseAppHost=false
 
 # ---------------------------------------------------------------------------
 # Runtime
