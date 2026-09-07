@@ -53,9 +53,20 @@ android/
 ios/
 
 # ---------- Uploaded content (never commit user data) ----------
-storage/
-uploads/
-receipts/
+# ANCHORED WITH A LEADING SLASH ON PURPOSE.
+#
+# A bare `storage/` or `receipts/` matches a directory of that name at ANY
+# depth, and git on Windows is case-insensitive by default. The unanchored form
+# silently swallowed three real source directories --
+# Application/Features/Receipts, Infrastructure/Storage and
+# mobile/src/features/receipts -- so the code built locally, where the files sit
+# on disk, and failed in Docker, which only ever sees what git tracks.
+#
+# Name the exact runtime directories instead. If the storage root moves, move
+# the pattern with it rather than reaching for a wildcard.
+/backend/ExpenseManagement.Api/storage/
+/backend/ExpenseManagement.Api/uploads/
+/backend/ExpenseManagement.Api/receipts/
 
 # ---------- Logs ----------
 logs/

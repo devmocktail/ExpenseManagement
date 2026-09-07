@@ -21,11 +21,17 @@ database/
 **/out/
 **/publish/
 
-# Local-only state
-**/logs/
-**/storage/
-**/uploads/
-**/receipts/
+# Local-only state.
+#
+# storage/ and receipts/ are NOT wildcarded here, for the same reason they are
+# anchored in .gitignore: `**/receipts/` also matches
+# Application/Features/Receipts and mobile/src/features/receipts, which would
+# strip real source out of the build context and fail the compile with a
+# missing-namespace error that looks nothing like an ignore-file problem.
+/backend/ExpenseManagement.Api/logs/
+/backend/ExpenseManagement.Api/storage/
+/backend/ExpenseManagement.Api/uploads/
+/backend/ExpenseManagement.Api/receipts/
 **/.vs/
 **/.vscode/
 **/.idea/
