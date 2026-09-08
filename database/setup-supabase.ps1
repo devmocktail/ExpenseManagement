@@ -132,9 +132,15 @@ $settings = [ordered]@{
     Seed              = [ordered]@{ DemoUser = $false }
 }
 
-# -Encoding utf8 explicitly: Set-Content defaults to the ANSI codepage on
-# Windows PowerShell, which mangles any non-ASCII character in a password.
-$settings | ConvertTo-Json -Depth 5 | Set-Content -Path $localSettings -Encoding utf8
+# Written through .NET rather than Set-Content, for two reasons.
+#
+# Set-Content's default on Windows PowerShell is the ANSI codepage, which
+# mangles a non-ASCII character in a password. Its -Encoding utf8 fixes that but
+# emits a BOM, and a BOM breaks strict JSON parsers: .NET's configuration loader
+# tolerates it, but Python's json.load rejects the file outright, which is
+# exactly how this was found. UTF8Encoding($false) writes UTF-8 with no BOM.
+$json = $settings | ConvertTo-Json -Depth 5
+[System.IO.File]::WriteAllText($localSettings, $json, (New-Object System.Text.UTF8Encoding $false))
 
 # Confirm git really is ignoring it before going any further.
 Push-Location $repoRoot
