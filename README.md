@@ -3,11 +3,13 @@
 A personal expense tracker for Android and iOS: an Expo/React Native client
 against an ASP.NET Core API on PostgreSQL.
 
-> **Status: in development.** The backend is built and verified end to end
-> against a real PostgreSQL instance. The mobile app typechecks clean and has
-> been driven through its main flows in a browser. Automated tests, CI and the
-> deployment pipeline are not written yet — see [What is not done](#what-is-not-done),
-> which is deliberately specific so nothing here reads as more finished than it is.
+> **Status: in development.** The backend is deployed and verified end to end
+> against a real PostgreSQL instance — the 39-check smoke suite passes against
+> the live service, not just against localhost. The mobile app typechecks clean
+> and has been driven through its main flows in a browser, but is not yet
+> pointed at the deployed API. A fast unit/integration suite still does not
+> exist — see [What is not done](#what-is-not-done), which is deliberately
+> specific so nothing here reads as more finished than it is.
 
 ## Stack
 
@@ -177,9 +179,18 @@ Stated plainly so the checklist is honest:
 - **iOS is unverified.** Development happened on Windows with no Apple hardware
   and no EAS credentials, so the iOS build has never been produced. Nothing is
   known to be wrong; nothing has been proven right either.
-- **Docker is unverified.** Docker is not installed on the development machine,
-  so `Dockerfile` and `docker-compose.yml` have been written but never executed.
-  The .NET build they wrap is verified; the container plumbing is not.
+- **`docker-compose.yml` is unverified.** Docker is not installed on the
+  development machine, so it has never been executed locally. The `Dockerfile`
+  itself is verified: Render builds and runs it, and the resulting container
+  serves the live API.
+- **Receipts do not survive a redeploy.** `LocalFileStorage` writes to the
+  container's filesystem, which on Render is ephemeral. Uploads work and are
+  validated, but a deploy discards them. This needs object storage — Supabase
+  Storage or S3 — before anyone relies on it.
+- **Data-protection keys are ephemeral too**, for the same reason, which the
+  deploy log warns about. Nothing currently depends on them surviving a
+  restart; anything that later does (persistent antiforgery, encrypted
+  cookies) will need a keyring in the database or object storage.
 - **Push notifications are unproven.** The scheduling, de-duplication and Expo
   delivery code is written, but it needs a physical device and an EAS project id
   to exercise.
