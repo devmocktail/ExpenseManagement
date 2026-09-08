@@ -68,6 +68,28 @@ dotnet ef database update --project ExpenseManagement.Infrastructure \
                           --startup-project ExpenseManagement.Api
 ```
 
+### Pointing it at Supabase
+
+One command. It prompts for the connection string, writes it to the gitignored
+`appsettings.Local.json`, applies the migrations and verifies the result.
+
+```powershell
+# Windows PowerShell
+.\database\setup-supabase.ps1
+```
+
+```bash
+# bash / WSL / macOS / Linux
+bash database/setup-supabase.sh
+```
+
+Both exist because Windows PowerShell 5.1 has neither the `&&` operator nor
+`bash` on PATH, so the shell script cannot be run from a default PowerShell
+prompt.
+
+See [docs/supabase.md](docs/supabase.md) — in particular, use Supabase's
+**session pooler on port 5432**, not the transaction pooler on 6543.
+
 ### Mobile
 
 ```bash
