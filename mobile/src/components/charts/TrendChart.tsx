@@ -7,6 +7,13 @@ import { useAppTheme } from '@/theme/ThemeProvider';
 import type { TrendPoint } from '@/types/api';
 import { formatCurrency } from '@/utils/currency';
 
+const INITIAL_SPACING = 8;
+const END_SPACING = 8;
+/** Keeps bars from touching when a period has many points. */
+const MIN_SPACING = 2;
+/** Below this a bar stops reading as a bar and becomes a hairline. */
+const MIN_BAR_WIDTH = 3;
+
 export type TrendChartProps = {
   data: TrendPoint[];
   /** `expense` plots one series; `comparison` plots income against expense. */
@@ -37,8 +44,32 @@ export function TrendChart({
   // Card padding either side, plus room for the y-axis labels.
   const chartWidth = Math.max(windowWidth - theme.spacing.base * 2 - theme.spacing.base * 2 - 40, 220);
 
-  const { primarySeries, secondarySeries, maxValue, hasData } = useMemo(() => {
-    const spacingPerPoint = data.length > 0 ? chartWidth / data.length : chartWidth;
+  const { primarySeries, secondarySeries, maxValue, hasData, barWidth } = useMemo(() => {
+    // gifted-charts treats `spacing` as the gap BETWEEN points, so a bar
+    // occupies barWidth + spacing. Dividing the width by the point count alone
+    // therefore overshoots by one bar width per point: a seven-day bar chart
+    // ran 106px past its card, which put the most recent day — the one that
+    // usually has today's data — off the right edge entirely, drawn but never
+    // visible.
+    //
+    // Comparison mode interleaves two series, so twice as many bars share the
+    // width. At a month's worth of points the preferred bar width alone
+    // overruns the card, and no amount of shrinking the gaps recovers it — so
+    // the bars themselves have to narrow. Below MIN_BAR_WIDTH they would stop
+    // reading as bars, and the period selector is the real answer at that
+    // density.
+    const slots = (mode === 'comparison' ? data.length * 2 : data.length) || 1;
+    const usable = Math.max(chartWidth - INITIAL_SPACING - END_SPACING, 0);
+    const perSlot = usable / slots;
+
+    const preferredBar = mode === 'comparison' ? 8 : 14;
+    const resolvedBar = Math.max(Math.min(preferredBar, perSlot - MIN_SPACING), MIN_BAR_WIDTH);
+
+    const spacingPerPoint =
+      variant === 'bar'
+        ? Math.max(perSlot - resolvedBar, MIN_SPACING)
+        : // A line's points have no width of their own; n points make n-1 gaps.
+          Math.max(usable / Math.max(slots - 1, 1), MIN_SPACING);
 
     // Show roughly six labels regardless of how many points there are.
     const stride = Math.max(1, Math.ceil(data.length / 6));
@@ -71,8 +102,9 @@ export function TrendChart({
       // empty box; a nominal ceiling keeps the baseline visible.
       maxValue: peak > 0 ? peak * 1.15 : 100,
       hasData: data.some((p) => p.income > 0 || p.expense > 0),
+      barWidth: resolvedBar,
     };
-  }, [data, chartWidth, mode, theme]);
+  }, [data, chartWidth, mode, variant, theme]);
 
   if (data.length === 0) {
     return (
@@ -106,8 +138,8 @@ export function TrendChart({
     rulesType: 'dashed' as const,
     yAxisLabelWidth: 44,
     formatYLabel: axisLabelFormatter,
-    initialSpacing: 8,
-    endSpacing: 8,
+    initialSpacing: INITIAL_SPACING,
+    endSpacing: END_SPACING,
   };
 
   return (
@@ -122,9 +154,11 @@ export function TrendChart({
           <BarChart
             {...shared}
             data={mode === 'comparison' ? interleave(secondarySeries, primarySeries) : primarySeries}
-            barWidth={mode === 'comparison' ? 8 : 14}
+            barWidth={barWidth}
             barBorderRadius={4}
-            spacing={mode === 'comparison' ? 14 : undefined}
+            // No chart-level `spacing`: every datum carries its own, computed
+            // above from the available width. A default here would be a second
+            // source of truth for the same number.
             frontColor={theme.c.primary}
           />
         ) : (
