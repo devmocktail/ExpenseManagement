@@ -72,6 +72,74 @@ public static class DependencyInjection
                 """);
         }
 
+        // Present is not the same as usable. Three paste mistakes survive the
+        // check above and then fail deep inside Npgsql, where the message is a
+        // KeyNotFoundException about a dictionary and names neither the setting
+        // nor the place it was set. All three are cheap to recognise here,
+        // while there is still enough context to say what to change.
+        var trimmed = connectionString.Trim();
+
+        if (trimmed.StartsWith('{'))
+        {
+            throw new InvalidOperationException(
+                """
+                ConnectionStrings:DefaultConnection holds a JSON object, not a
+                connection string.
+
+                The value begins with '{', so something like this was pasted whole:
+
+                  { "ConnectionStrings": { "DefaultConnection": "Host=..." } }
+
+                That is the shape of appsettings.json. An environment variable
+                carries only the innermost value, because the variable's NAME
+                already expresses the nesting - '__' binds it to
+                ConnectionStrings:DefaultConnection:
+
+                  ConnectionStrings__DefaultConnection=Host=...;Port=5432;...
+
+                Left alone, Npgsql reads everything before the first '=' as a
+                keyword name and fails with "The given key was not present in
+                the dictionary", forty frames from anything configurable.
+                """);
+        }
+
+        if (trimmed.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                """
+                ConnectionStrings:DefaultConnection is in URI form, which Npgsql
+                does not parse.
+
+                Supabase, Heroku and Neon all show this form first. Convert it to
+                keyword/value pairs:
+
+                  postgresql://USER:PASSWORD@HOST:5432/postgres
+
+                becomes
+
+                  Host=HOST;Port=5432;Database=postgres;Username=USER;
+                  Password=PASSWORD;SSL Mode=Require;Trust Server Certificate=true
+
+                Or choose ".NET" in Supabase's Connect dialog, which emits the
+                converted form directly.
+                """);
+        }
+
+        if (!trimmed.Contains('='))
+        {
+            throw new InvalidOperationException(
+                """
+                ConnectionStrings:DefaultConnection is not a connection string.
+
+                Npgsql expects semicolon-separated keyword=value pairs and this
+                value contains no '=' at all. A bare hostname is not enough:
+
+                  Host=<host>;Port=5432;Database=postgres;Username=<user>;
+                  Password=<password>;SSL Mode=Require;Trust Server Certificate=true
+                """);
+        }
+
         services.AddDbContext<AppDbContext>(options =>
         {
             options.UseNpgsql(connectionString, npgsql =>

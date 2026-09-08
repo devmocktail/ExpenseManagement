@@ -27,8 +27,8 @@ try
     var builder = WebApplication.CreateBuilder(args);
 
     // A gitignored per-developer override, loaded after the environment files so
-    // it wins over them, and before environment variables so a deployed host
-    // still wins over it.
+    // it wins over them. Environment variables are re-registered immediately
+    // below so that a deployed host still outranks it.
     //
     // This is where a real connection string belongs while working locally --
     // a hosted Supabase or Azure database, say. appsettings.Development.json is
@@ -38,6 +38,20 @@ try
     // `dotnet user-secrets` is the other option and is better still, since it
     // stores outside the repository entirely. Both work; see docs/supabase.md.
     builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
+    // Then put the environment back on top.
+    //
+    // CreateBuilder has already registered the environment-variable and
+    // command-line providers, and the LAST provider registered wins. Appending
+    // the file above therefore made it outrank them both - so setting
+    // ConnectionStrings__DefaultConnection on a machine that happened to have an
+    // appsettings.Local.json did nothing at all, silently, and the process
+    // connected to whatever the stale file named.
+    //
+    // Re-registering these two restores the intended order: environment files,
+    // then the local override, then the environment itself.
+    builder.Configuration.AddEnvironmentVariables();
+    if (args.Length > 0) builder.Configuration.AddCommandLine(args);
 
     builder.Host.UseSerilog((context, services, configuration) => configuration
         .ReadFrom.Configuration(context.Configuration)
@@ -360,13 +374,17 @@ try
                   {Message}
 
                 Check, in this order:
-                  1. ConnectionStrings__DefaultConnection is set for this environment.
-                  2. The server, database name and credentials in it are correct.
-                  3. The database's firewall allows this host's outbound address.
-                  4. Encrypt=True is present (Azure SQL requires it).
-                  5. On Azure SQL serverless, whether the database is paused - the
-                     first connection after an auto-pause can take up to a minute,
-                     so raise Connection Timeout in the connection string.
+                  1. ConnectionStrings__DefaultConnection is set for this
+                     environment, and holds ONLY the string - not the JSON object
+                     from appsettings.json wrapped around it.
+                  2. The host, database name and credentials in it are correct.
+                  3. SSL Mode=Require is present. Supabase and most hosted
+                     PostgreSQL refuse unencrypted connections outright.
+                  4. The port is 5432, the SESSION pooler. 6543 is the transaction
+                     pooler, which cannot hold the prepared statements Npgsql
+                     relies on.
+                  5. The database's network restrictions allow this host's
+                     outbound address.
 
                 Full exception follows.
                 """,
