@@ -100,6 +100,10 @@ npm install
 npm start          # then press a for Android, i for iOS, w for web
 ```
 
+For a full Android emulator setup from scratch — SDK, AVD, and the memory
+constraints that make Metro hang silently on an 8 GB machine — see
+[docs/android-emulator.md](docs/android-emulator.md).
+
 `.env.development` points at `http://10.0.2.2:5165`, which is the **Android
 emulator's** alias for the host machine's loopback. Change it for your target:
 
