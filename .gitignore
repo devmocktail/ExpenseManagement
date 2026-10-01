@@ -39,6 +39,11 @@ secrets.json
 google-services.json
 GoogleService-Info.plist
 
+# Android release signing. The keystore itself is matched by *.keystore above,
+# but keystore.properties is not, and it carries the store and key passwords in
+# plaintext -- a `git add -A` would publish them to a public repository.
+/mobile/credentials/
+
 # ---------- Node / React Native / Expo ----------
 node_modules/
 npm-debug.log*

@@ -104,6 +104,49 @@ For a full Android emulator setup from scratch — SDK, AVD, and the memory
 constraints that make Metro hang silently on an 8 GB machine — see
 [docs/android-emulator.md](docs/android-emulator.md).
 
+### Building an installable APK
+
+`npm start` runs against Metro, so the app needs your machine on the network.
+To produce a standalone APK that installs on any phone:
+
+```bash
+cd mobile
+npx expo prebuild --platform android     # generates the gitignored android/
+cd android
+./gradlew assembleRelease
+```
+
+The result is `android/app/build/outputs/apk/release/app-release.apk`.
+
+Three things that are not obvious:
+
+- **It needs `mobile/.env.production`.** A release build has no Metro and does
+  not read `.env.development*`, so without that file the app ships pointing at
+  the dev fallback and cannot reach anything. Copy `.env.production.example`
+  and set `EXPO_PUBLIC_API_BASE_URL` to the deployed API.
+- **Signing.** The generated project signs release with the *debug* keystore,
+  which every Android developer shares — fine for testing, never for
+  distribution. Put a real keystore and a `keystore.properties` in
+  `mobile/credentials/` (gitignored) and the build picks it up.
+- **`android/` is gitignored** because Expo regenerates it, so edits there do
+  not survive `prebuild --clean`. On an 8 GB machine two changes are needed
+  every time: `reactNativeArchitectures=arm64-v8a` (building all four
+  architectures quadruples the native compile for no benefit on a real phone)
+  and `lint { checkReleaseBuilds false }` (`lintVitalReportRelease` exhausts
+  the heap *after* every other task has succeeded, so the build fails having
+  produced nothing). Both belong in an Expo config plugin, or use EAS Build.
+
+Verify what you built before handing it to anyone:
+
+```bash
+apksigner verify --print-certs app-release.apk   # must NOT say CN=Android Debug
+```
+
+iOS cannot be built from Windows at all — Xcode is macOS-only. EAS Build runs
+macOS builders in the cloud, but installing the result needs a paid Apple
+Developer account ($99/yr) and TestFlight or a device registered by UDID;
+there is no iOS equivalent of handing someone an APK.
+
 `.env.development` points at `http://10.0.2.2:5165`, which is the **Android
 emulator's** alias for the host machine's loopback. Change it for your target:
 
