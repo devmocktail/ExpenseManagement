@@ -13,7 +13,12 @@ services:
     name: expense-management-api
     runtime: docker
     plan: free
-    region: oregon
+    # Singapore is Render's closest region to Supabase's ap-southeast-2
+    # (Sydney). Oregon is roughly 13,000 km further away, and every query pays
+    # that round trip twice - once to open the pooled connection and once per
+    # statement. On a dashboard that issues several queries per request it is
+    # the difference between a snappy screen and a visibly slow one.
+    region: singapore
 
     dockerfilePath: ./Dockerfile
     dockerContext: .
