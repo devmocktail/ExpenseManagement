@@ -1,3 +1,4 @@
+using System.Linq;
 using ExpenseManagement.Application.Common.Interfaces;
 using ExpenseManagement.Domain.Entities;
 using ExpenseManagement.Infrastructure.Identity;
@@ -50,7 +51,7 @@ public static class DependencyInjection
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             throw new InvalidOperationException(
-                """
+                $"""
                 ConnectionStrings:DefaultConnection is not configured.
 
                 This application requires PostgreSQL. Set the connection string
@@ -63,6 +64,8 @@ public static class DependencyInjection
 
                 The double underscore is the nesting separator: it binds to the
                 ConnectionStrings:DefaultConnection key.
+
+                {DescribeConfiguredVariables()}
 
                 For Supabase, copy the URI from Project Settings > Database and
                 convert it to Npgsql's key/value form. Use the SESSION pooler on
@@ -189,6 +192,65 @@ public static class DependencyInjection
         services.AddScoped<DatabaseSeeder>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Reports which of this application's own environment variables the
+    /// process can actually see, by NAME only.
+    /// </summary>
+    /// <remarks>
+    /// "Not configured" alone cannot distinguish the two things that cause it,
+    /// and they have opposite fixes: the variable was never delivered to the
+    /// container (on Render, an environment group created but never linked to
+    /// the service — groups apply to nothing until linked), or it was
+    /// delivered under a slightly wrong name (one underscore instead of two,
+    /// or a different case). Listing what did arrive separates them on the
+    /// first deploy instead of the third.
+    ///
+    /// Names only, never values: these variables hold database passwords and
+    /// the JWT signing key, and deploy logs are routinely pasted into chats
+    /// and issue trackers.
+    /// </remarks>
+    private static string DescribeConfiguredVariables()
+    {
+        string[] prefixes =
+        [
+            "ConnectionStrings", "Jwt", "Seed", "Hosting", "Database",
+            "FileStorage", "Cors", "RateLimiting", "ASPNETCORE_",
+        ];
+
+        var visible = Environment.GetEnvironmentVariables()
+            .Keys
+            .Cast<string>()
+            .Where(name => prefixes.Any(p => name.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (visible.Length == 0)
+        {
+            return """
+                   This container can see NONE of this application's environment
+                   variables - not even ASPNETCORE_ENVIRONMENT. So the value was
+                   not merely misspelled; nothing reached the process at all.
+
+                   On Render the usual cause is an environment GROUP that was
+                   created but never linked to the service. A group applies to
+                   nothing until it is linked: open the service, go to
+                   Environment, scroll to Environment Groups, and link it. The
+                   group's own page only reports the link, it cannot create one.
+                   """;
+        }
+
+        return "Variables this container CAN see (names only, values withheld):"
+             + Environment.NewLine
+             + string.Join(Environment.NewLine, visible.Select(name => "  " + name))
+             + Environment.NewLine
+             + Environment.NewLine
+             + "If ConnectionStrings__DefaultConnection is absent from that list but"
+             + Environment.NewLine
+             + "something similar appears, the name is wrong - it needs exactly two"
+             + Environment.NewLine
+             + "underscores and that exact casing.";
     }
 
     private static IServiceCollection AddIdentityServices(
