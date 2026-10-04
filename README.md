@@ -136,10 +136,26 @@ Three things that are not obvious:
   the heap *after* every other task has succeeded, so the build fails having
   produced nothing). Both belong in an Expo config plugin, or use EAS Build.
 
-Verify what you built before handing it to anyone:
+**Changing `.env.production` does not invalidate the build.** Gradle's
+up-to-date check tracks source files; it has never heard of `.env.production`,
+and Expo inlines those values during `createBundleReleaseJsAndAssets`. Point
+the app at a different API, rebuild, and Gradle reports BUILD SUCCESSFUL in
+under two minutes having repackaged the previous bundle — the APK still calls
+the old host. Delete the cached bundle first:
 
 ```bash
+find android/app/build -name index.android.bundle -delete
+```
+
+Verify what you built before handing it to anyone — the build log will not
+tell you either of these:
+
+```bash
+# Signed with a real key, not the shared debug one?
 apksigner verify --print-certs app-release.apk   # must NOT say CN=Android Debug
+
+# Pointing at the API you think it is?
+unzip -p app-release.apk assets/index.android.bundle | grep -c "<your-api-host>"
 ```
 
 iOS cannot be built from Windows at all — Xcode is macOS-only. EAS Build runs
