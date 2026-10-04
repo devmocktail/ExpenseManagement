@@ -14,8 +14,25 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 
 API = (sys.argv[1] if len(sys.argv) > 1 else "http://localhost:5165").rstrip("/") + "/api/v1"
+
+# Transactions must land inside the CURRENT dashboard period, because six of
+# the assertions below compare this period's totals against what they created.
+# These dates used to be hardcoded to 2026-09-01, which quietly stopped being
+# true on 1 October: the API correctly filed them under the previous month,
+# the dashboard correctly reported zero for this one, and the suite reported
+# six failures against an API that was behaving perfectly.
+#
+# 10:00Z and 09:00Z are deliberate. The test account's timezone is
+# Asia/Kolkata (UTC+5:30), so the period boundaries are IST midnights; at
+# those hours the IST calendar date still matches the UTC one, which it would
+# not late in the UTC evening. Picking "now" instead would put a transaction
+# on the wrong side of a month boundary for part of every day.
+_TODAY = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+TXN_DATE = _TODAY + "T10:00:00Z"
+TXN_DATE_EARLIER = _TODAY + "T09:00:00Z"
 
 passed: list[str] = []
 failed: list[str] = []
@@ -153,7 +170,7 @@ else:
 section(11, "Create transaction")
 s, txn = call("POST", "/transactions", {
     "type": "Expense", "amount": 450.75, "categoryId": cat_id,
-    "transactionDate": "2026-09-01T10:00:00Z", "paymentMethod": "Upi",
+    "transactionDate": TXN_DATE, "paymentMethod": "Upi",
     "merchant": "Test Restaurant",
 }, token=token_a)
 tx = txn.get("data") if isinstance(txn, dict) else None
@@ -188,14 +205,14 @@ ok(f"B delete -> {s}") if s == 404 else bad("ISOLATION BREACH on delete", s)
 section(16, "*** ISOLATION: B cannot update A's transaction ***")
 s, r = call("PUT", f"/transactions/{tx_id}", {
     "type": "Expense", "amount": 1, "categoryId": cat_id,
-    "transactionDate": "2026-09-01T10:00:00Z", "paymentMethod": "Cash",
+    "transactionDate": TXN_DATE, "paymentMethod": "Cash",
 }, token=token_b)
 ok(f"B update -> {s}") if s in (404, 422) else bad("ISOLATION BREACH on update", f"{s} {r}")
 
 section(17, "*** ISOLATION: B cannot use A's category ***")
 s, r = call("POST", "/transactions", {
     "type": "Expense", "amount": 10, "categoryId": cat_id,
-    "transactionDate": "2026-09-01T10:00:00Z", "paymentMethod": "Cash",
+    "transactionDate": TXN_DATE, "paymentMethod": "Cash",
 }, token=token_b)
 ok(f"B using A's categoryId -> {s}") if s in (404, 422) else bad("ISOLATION BREACH via category", f"{s} {r}")
 
@@ -210,7 +227,7 @@ ok("currency INR from settings") if d.get("currencyCode") == "INR" else bad("cur
 section(19, "Add income; balance recomputes exactly")
 call("POST", "/transactions", {
     "type": "Income", "amount": 65000.00, "categoryId": inc_id,
-    "transactionDate": "2026-09-01T09:00:00Z", "paymentMethod": "BankTransfer",
+    "transactionDate": TXN_DATE_EARLIER, "paymentMethod": "BankTransfer",
     "merchant": "Employer",
 }, token=token_a)
 _, dash2 = call("GET", "/dashboard", token=token_a)
@@ -251,7 +268,7 @@ ok("all nullable keys present") if not missing else bad("nullable keys omitted",
 section(25, "Validation returns field-level errors")
 s, ve = call("POST", "/transactions", {
     "type": "Expense", "amount": -5, "categoryId": cat_id,
-    "transactionDate": "2026-09-01T10:00:00Z", "paymentMethod": "Cash",
+    "transactionDate": TXN_DATE, "paymentMethod": "Cash",
 }, token=token_a)
 errs = ve.get("errors", []) if isinstance(ve, dict) else []
 if s in (400, 422) and errs:
