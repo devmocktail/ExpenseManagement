@@ -17,13 +17,21 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { AppEmptyState, AppErrorState } from '@/components/ui/StateViews';
 import { ListSkeleton } from '@/components/ui/Skeleton';
 import { FilterSheet, type TransactionFilters } from '@/features/transactions/FilterSheet';
+import { TransfersList } from '@/features/transfers/TransfersList';
 import { flattenPages, useTransactionsInfinite } from '@/features/transactions/hooks';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useAppTheme } from '@/theme/ThemeProvider';
 import type { Transaction, TransactionType } from '@/types/api';
 import { formatRelativeDayHeading, toDayKey } from '@/utils/date';
 
-type TabValue = 'all' | 'Expense' | 'Income';
+type TabValue = 'all' | 'Expense' | 'Income' | 'transfers';
+
+/**
+ * Transfers are a fourth tab rather than a filter on the ledger, because they
+ * are not transactions: money moved between the user's own accounts is neither
+ * spending nor income. Mixing them into the same list would put rows in a
+ * ledger whose totals deliberately exclude them, which reads as a bug.
+ */
 
 /**
  * The transaction ledger.
@@ -52,7 +60,7 @@ export default function TransactionsScreen() {
   const query = useMemo(
     () => ({
       search: debouncedSearch.trim() || undefined,
-      type: tab === 'all' ? undefined : (tab as TransactionType),
+      type: tab === 'all' || tab === 'transfers' ? undefined : (tab as TransactionType),
       categoryId: filters.categoryId,
       from: filters.from,
       to: filters.to,
@@ -126,6 +134,7 @@ export default function TransactionsScreen() {
         <View style={styles.titleRow}>
           <AppText variant="heading2">Transactions</AppText>
 
+          {tab === 'transfers' ? null : (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={
@@ -162,13 +171,16 @@ export default function TransactionsScreen() {
               </View>
             ) : null}
           </Pressable>
+          )}
         </View>
 
-        <SearchBar
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search merchant, note or category"
-        />
+        {tab === 'transfers' ? null : (
+          <SearchBar
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search merchant, note or category"
+          />
+        )}
 
         <SegmentedControl
           value={tab}
@@ -177,11 +189,14 @@ export default function TransactionsScreen() {
             { value: 'all', label: 'All' },
             { value: 'Expense', label: 'Expenses' },
             { value: 'Income', label: 'Income' },
+            { value: 'transfers', label: 'Transfers' },
           ]}
         />
       </View>
 
-      {isError ? (
+      {tab === 'transfers' ? (
+        <TransfersList bottomInset={insets.bottom} />
+      ) : isError ? (
         <AppErrorState
           description={error instanceof Error ? error.message : undefined}
           onRetry={() => void refetch()}

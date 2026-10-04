@@ -73,6 +73,18 @@ export const queryKeys = {
     detail: () => [...queryKeys.profile.all, 'detail'] as const,
     settings: () => [...queryKeys.profile.all, 'settings'] as const,
   },
+  accounts: {
+    all: ['accounts'] as const,
+    list: (includeArchived?: boolean) =>
+      [...queryKeys.accounts.all, 'list', includeArchived ? 'with-archived' : 'active'] as const,
+    detail: (id: string) => [...queryKeys.accounts.all, 'detail', id] as const,
+  },
+  transfers: {
+    all: ['transfers'] as const,
+    list: (filters: Record<string, unknown>) =>
+      [...queryKeys.transfers.all, 'list', filters] as const,
+    detail: (id: string) => [...queryKeys.transfers.all, 'detail', id] as const,
+  },
   categories: {
     all: ['categories'] as const,
     list: (type?: string) => [...queryKeys.categories.all, 'list', type ?? 'all'] as const,
@@ -120,4 +132,22 @@ export const TRANSACTION_DEPENDENT_KEYS = [
   queryKeys.budgets.all,
   queryKeys.analytics.all,
   queryKeys.categories.all,
+  // Account balances are derived from transactions, so a new expense changes
+  // one even though nothing about the account itself was edited. Without this
+  // the accounts screen shows a stale balance until it happens to refetch.
+  queryKeys.accounts.all,
+] as const;
+
+/**
+ * What a transfer invalidates.
+ *
+ * Deliberately shorter than the list above: a transfer moves money between
+ * pots without changing what was earned or spent, so the dashboard's totals,
+ * the budgets and the analytics summary are all untouched by one. Refetching
+ * them would not be wrong, but it would imply a relationship that does not
+ * exist — and this list is the clearest statement of that in the client.
+ */
+export const TRANSFER_DEPENDENT_KEYS = [
+  queryKeys.transfers.all,
+  queryKeys.accounts.all,
 ] as const;

@@ -2,8 +2,7 @@ import { z } from 'zod';
 import {
   BUDGET_PERIODS,
   PAYMENT_METHODS,
-  RECURRENCE_FREQUENCIES,
-} from '@/types/api';
+  RECURRENCE_FREQUENCIES, ACCOUNT_TYPES,} from '@/types/api';
 
 /**
  * Client-side validation.
@@ -148,11 +147,60 @@ export const transactionSchema = z.object({
     'That date is in the future',
   ),
   paymentMethod: z.enum(PAYMENT_METHODS),
+  // Optional on purpose: "I did not say which account" is a real answer, and
+  // the empty string is what an untouched picker holds.
+  accountId: z.union([uuid, z.literal('')]).optional(),
   merchant: z.string().trim().max(200, 'Keep this under 200 characters').optional().or(z.literal('')),
   description: z.string().trim().max(500, 'Keep this under 500 characters').optional().or(z.literal('')),
   notes: z.string().trim().max(2000, 'Keep this under 2000 characters').optional().or(z.literal('')),
 });
 export type TransactionFormValues = z.infer<typeof transactionSchema>;
+
+// --- Transfers -------------------------------------------------------------
+
+export const transferSchema = z
+  .object({
+    fromAccountId: uuid,
+    toAccountId: uuid,
+    amount: amountString,
+    transferDate: z.date({ required_error: 'Pick a date' }).refine(
+      (d) => d.getTime() <= Date.now() + 24 * 60 * 60 * 1000,
+      'That date is in the future',
+    ),
+    notes: z.string().trim().max(2000, 'Keep this under 2000 characters').optional().or(z.literal('')),
+  })
+  // Checked here as well as by the server and a database constraint. This is
+  // the only one of the three that can attach the message to a field, so the
+  // picker the user has to change is the thing that turns red.
+  .refine((values) => values.fromAccountId !== values.toAccountId, {
+    message: 'Choose a different account to transfer into',
+    path: ['toAccountId'],
+  });
+export type TransferFormValues = z.infer<typeof transferSchema>;
+
+// --- Accounts --------------------------------------------------------------
+
+export const accountSchema = z.object({
+  name: z.string().trim().min(1, 'Give the account a name').max(100, 'That name is too long'),
+  type: z.enum(ACCOUNT_TYPES),
+  // Free text rather than amountString: an opening balance may be negative,
+  // which is the normal state of a credit card, and amountString rejects a
+  // leading minus.
+  openingBalance: z
+    .string()
+    .trim()
+    .refine((v) => v === '' || /^-?\d+(\.\d{1,2})?$/.test(v), 'Enter a number, e.g. 2500 or -1200')
+    .optional(),
+  institution: z.string().trim().max(100, 'Keep this under 100 characters').optional().or(z.literal('')),
+  // Four digits and no more. The field is a label for telling two cards apart;
+  // a full card number must never reach storage.
+  last4: z
+    .string()
+    .trim()
+    .refine((v) => v === '' || /^\d{4}$/.test(v), 'Enter only the last four digits')
+    .optional(),
+});
+export type AccountFormValues = z.infer<typeof accountSchema>;
 
 // --- Categories ------------------------------------------------------------
 

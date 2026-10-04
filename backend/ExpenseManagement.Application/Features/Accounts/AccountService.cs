@@ -1,5 +1,6 @@
 using ExpenseManagement.Application.Common.Interfaces;
 using ExpenseManagement.Domain.Entities;
+using ExpenseManagement.Domain.Enums;
 using ExpenseManagement.Domain.Exceptions;
 using Microsoft.EntityFrameworkCore;
 
@@ -58,8 +59,8 @@ public sealed class AccountService(
         var userId = currentUser.RequireUserId();
 
         var name = request.Name.Trim();
-        var icon = (request.Icon ?? "wallet-outline").Trim().ToLowerInvariant();
-        var color = (request.Color ?? "#4F46E5").Trim().ToUpperInvariant();
+        var icon = (request.Icon ?? DefaultIconFor(request.Type)).Trim().ToLowerInvariant();
+        var color = (request.Color ?? DefaultColorFor(request.Type)).Trim().ToUpperInvariant();
         var currency = (request.CurrencyCode ?? await DefaultCurrencyAsync(userId, cancellationToken))
             .Trim()
             .ToUpperInvariant();
@@ -277,6 +278,39 @@ public sealed class AccountService(
     }
 
     // ---------------------------------------------------------------------
+
+    /// <summary>
+    /// The icon an account gets when the client does not choose one.
+    /// </summary>
+    /// <remarks>
+    /// Derived from the type rather than a single fallback, because a list where
+    /// a bank, a card and a pocketful of cash all carry the same wallet glyph
+    /// gives the eye nothing to sort by — which is most of what an icon is for
+    /// in a list people scan rather than read.
+    /// </remarks>
+    private static string DefaultIconFor(AccountType type) => type switch
+    {
+        AccountType.Cash => "wallet-outline",
+        AccountType.Bank => "bank-outline",
+        AccountType.CreditCard => "credit-card-outline",
+        AccountType.Wallet => "cellphone",
+        AccountType.Savings => "piggy-bank-outline",
+        _ => "wallet-outline",
+    };
+
+    /// <summary>
+    /// Distinct hues per type, for the same reason. These are defaults the user
+    /// can override, not a palette the UI depends on.
+    /// </summary>
+    private static string DefaultColorFor(AccountType type) => type switch
+    {
+        AccountType.Cash => "#16A34A",
+        AccountType.Bank => "#4F46E5",
+        AccountType.CreditCard => "#DB2777",
+        AccountType.Wallet => "#0891B2",
+        AccountType.Savings => "#CA8A04",
+        _ => "#64748B",
+    };
 
     private async Task<AccountDto> ProjectAsync(Guid id, Guid userId, CancellationToken cancellationToken) =>
         await db.Accounts

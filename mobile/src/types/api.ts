@@ -248,6 +248,15 @@ export type Transaction = {
   receipts: ReceiptSummary[];
   createdAt: IsoDateTime;
   updatedAt: IsoDateTime | null;
+  /**
+   * Null means "not attributed to an account" — true of everything recorded
+   * before accounts existed, and of anything entered without choosing one. It
+   * still counts towards totals and budgets; it just moves no balance.
+   */
+  accountId: string | null;
+  accountName: string | null;
+  accountIcon: string | null;
+  accountColor: string | null;
 };
 
 export type CreateTransactionRequest = {
@@ -260,6 +269,8 @@ export type CreateTransactionRequest = {
   merchant?: string | null;
   notes?: string | null;
   currencyCode?: string;
+  /** Which pot it came from. Omit to leave it unattributed. */
+  accountId?: string | null;
   /** Idempotency key for offline replay; a repeat of the same key updates in place. */
   clientReference?: string | null;
 };
@@ -271,6 +282,7 @@ export type TransactionQuery = {
   pageSize?: number;
   search?: string;
   categoryId?: string;
+  accountId?: string;
   type?: TransactionType;
   /** Inclusive UTC lower bound. */
   from?: IsoDateTime;
@@ -281,6 +293,131 @@ export type TransactionQuery = {
   paymentMethod?: PaymentMethod;
   sortBy?: 'date' | 'amount';
   sortDirection?: 'asc' | 'desc';
+};
+
+// ---------------------------------------------------------------------------
+// Accounts and transfers
+// ---------------------------------------------------------------------------
+
+export const ACCOUNT_TYPES = [
+  'Cash',
+  'Bank',
+  'CreditCard',
+  'Wallet',
+  'Savings',
+  'Other',
+] as const;
+
+/**
+ * What kind of pot the money sits in — not the same thing as `PaymentMethod`,
+ * which records how one transaction was settled. A UPI payment and a card
+ * payment can both come out of the same bank account.
+ */
+export type AccountType = (typeof ACCOUNT_TYPES)[number];
+
+export type Account = {
+  id: string;
+  name: string;
+  type: AccountType;
+  currencyCode: string;
+  openingBalance: number;
+  /**
+   * Derived server-side on every read: opening balance, plus income in, minus
+   * expenses out, plus transfers in, minus transfers out. Never stored, so it
+   * cannot drift from the rows it summarises.
+   */
+  balance: number;
+  institution: string | null;
+  /** Last four digits only — a label, never a usable card number. */
+  last4: string | null;
+  icon: string;
+  color: string;
+  /** Pre-selected when adding a transaction. Exactly one per user. */
+  isDefault: boolean;
+  /** Hidden from pickers but still counted in history. */
+  isArchived: boolean;
+  sortOrder: number;
+  transactionCount: number;
+  transferCount: number;
+};
+
+export type CreateAccountRequest = {
+  name: string;
+  type: AccountType;
+  currencyCode?: string;
+  openingBalance?: number;
+  institution?: string | null;
+  last4?: string | null;
+  icon?: string;
+  color?: string;
+  isDefault?: boolean;
+  sortOrder?: number;
+};
+
+/**
+ * No `currencyCode`: changing it would reinterpret every amount already
+ * recorded against the account without touching a single row. A different
+ * currency is a different account.
+ */
+export type UpdateAccountRequest = {
+  name: string;
+  type: AccountType;
+  openingBalance?: number;
+  institution?: string | null;
+  last4?: string | null;
+  icon?: string;
+  color?: string;
+  isArchived?: boolean;
+  sortOrder?: number;
+};
+
+/**
+ * Money moved between two of your own accounts.
+ *
+ * Deliberately not a `Transaction`: moving money between your own pots is not
+ * spending, so a transfer never appears in any income or expense total. Both
+ * ends are denormalised onto the row because the list renders
+ * "HDFC Savings → Cash in hand" on every line.
+ */
+export type Transfer = {
+  id: string;
+  fromAccountId: string;
+  fromAccountName: string;
+  fromAccountType: AccountType;
+  fromAccountIcon: string;
+  fromAccountColor: string;
+  toAccountId: string;
+  toAccountName: string;
+  toAccountType: AccountType;
+  toAccountIcon: string;
+  toAccountColor: string;
+  amount: number;
+  currencyCode: string;
+  transferDate: IsoDateTime;
+  notes: string | null;
+  createdAt: IsoDateTime;
+  updatedAt: IsoDateTime | null;
+};
+
+export type CreateTransferRequest = {
+  fromAccountId: string;
+  toAccountId: string;
+  amount: number;
+  transferDate: IsoDateTime;
+  notes?: string | null;
+  /** Idempotency key: a repeat of the same key returns the transfer it already created. */
+  clientReference?: string | null;
+};
+
+export type UpdateTransferRequest = Omit<CreateTransferRequest, 'clientReference'>;
+
+export type TransferQuery = {
+  page?: number;
+  pageSize?: number;
+  /** Matches either end — "what moved in and out of my wallet" is one question. */
+  accountId?: string;
+  from?: IsoDateTime;
+  to?: IsoDateTime;
 };
 
 // ---------------------------------------------------------------------------

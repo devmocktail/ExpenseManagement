@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,10 +14,11 @@ import { AppText } from '@/components/ui/AppText';
 import { OptionPicker } from '@/components/ui/OptionPicker';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { PAYMENT_METHOD_ICONS, PAYMENT_METHOD_LABELS } from '@/constants/icons';
+import { useAccounts, useDefaultAccount } from '@/features/accounts/hooks';
 import { ReceiptPicker } from '@/features/receipts/ReceiptPicker';
 import { useAppTheme } from '@/theme/ThemeProvider';
 import { PAYMENT_METHODS, type PaymentMethod, type Transaction, type TransactionType } from '@/types/api';
-import { parseAmountInput } from '@/utils/currency';
+import { formatCurrency, parseAmountInput } from '@/utils/currency';
 import { toServerDate } from '@/utils/date';
 import { transactionSchema, type TransactionFormValues } from '@/validation/schemas';
 
@@ -27,6 +28,8 @@ export type TransactionFormSubmit = {
   categoryId: string;
   transactionDate: string;
   paymentMethod: PaymentMethod;
+  /** Null means "not attributed to an account", which is a legitimate choice. */
+  accountId: string | null;
   merchant: string | null;
   description: string | null;
   notes: string | null;
@@ -62,6 +65,9 @@ export function TransactionForm({
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
 
+  const { data: accounts = [] } = useAccounts();
+  const defaultAccount = useDefaultAccount();
+
   const [showAdvanced, setShowAdvanced] = useState(
     // Open automatically when editing something that already uses these fields,
     // otherwise the user cannot see values that exist.
@@ -84,6 +90,7 @@ export function TransactionForm({
       categoryId: initial?.categoryId ?? '',
       transactionDate: initial ? new Date(initial.transactionDate) : new Date(),
       paymentMethod: initial?.paymentMethod ?? 'Cash',
+      accountId: initial ? (initial.accountId ?? '') : '',
       merchant: initial?.merchant ?? '',
       description: initial?.description ?? '',
       notes: initial?.notes ?? '',
@@ -92,6 +99,14 @@ export function TransactionForm({
   });
 
   const type = watch('type');
+  const accountId = watch('accountId');
+
+  useEffect(() => {
+    if (initial) return;
+    if (accountId) return;
+    if (!defaultAccount) return;
+    setValue('accountId', defaultAccount.id);
+  }, [initial, accountId, defaultAccount, setValue]);
 
   const submit = handleSubmit(async (values) => {
     setFormError(null);
@@ -111,6 +126,7 @@ export function TransactionForm({
         paymentMethod: values.paymentMethod,
         // Empty strings become null so the server stores an absent value rather
         // than an empty one, which would show as a blank line in the detail view.
+        accountId: values.accountId || null,
         merchant: values.merchant?.trim() || null,
         description: values.description?.trim() || null,
         notes: values.notes?.trim() || null,
@@ -226,6 +242,28 @@ export function TransactionForm({
             />
           )}
         />
+
+        {accounts.length > 0 ? (
+          <Controller
+            control={control}
+            name="accountId"
+            render={({ field: { onChange, value } }) => (
+              <OptionPicker
+                label="Account"
+                placeholder="Not set"
+                value={value || undefined}
+                onChange={onChange}
+                options={accounts.map((account) => ({
+                  value: account.id,
+                  label: account.name,
+                  description: formatCurrency(account.balance, account.currencyCode),
+                  icon: account.icon as React.ComponentProps<typeof MaterialCommunityIcons>['name'],
+                }))}
+                error={errors.accountId?.message}
+              />
+            )}
+          />
+        ) : null}
 
         <Controller
           control={control}

@@ -118,6 +118,11 @@ export default function ProfileScreen() {
           label: 'Budgets',
           onPress: () => router.push('/budget'),
         },
+        {
+          icon: 'bank-outline',
+          label: 'Accounts',
+          onPress: () => router.push('/accounts'),
+        },
       ],
     },
     {
