@@ -51,5 +51,15 @@ public static class TransactionMappings
             .ToList(),
 
         t.CreatedAt,
-        t.UpdatedAt);
+        t.UpdatedAt,
+
+        // Null-conditional through the navigation: AccountId is nullable, so
+        // every transaction written before accounts existed - and every one
+        // where the user simply did not say - has no account to read a name
+        // from. EF translates this to a LEFT JOIN, which is what makes the
+        // absence a null rather than a dropped row.
+        t.AccountId,
+        t.Account != null ? t.Account.Name : null,
+        t.Account != null ? t.Account.Icon : null,
+        t.Account != null ? t.Account.Color : null);
 }

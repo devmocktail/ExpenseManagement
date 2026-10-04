@@ -17,8 +17,10 @@ namespace ExpenseManagement.Application.Common.Interfaces;
 /// </summary>
 public interface IAppDbContext
 {
+    DbSet<Account> Accounts { get; }
     DbSet<Category> Categories { get; }
     DbSet<Transaction> Transactions { get; }
+    DbSet<Transfer> Transfers { get; }
     DbSet<Budget> Budgets { get; }
     DbSet<RecurringTransaction> RecurringTransactions { get; }
     DbSet<Receipt> Receipts { get; }

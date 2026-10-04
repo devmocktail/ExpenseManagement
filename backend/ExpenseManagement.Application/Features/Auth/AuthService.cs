@@ -1,4 +1,5 @@
 using ExpenseManagement.Application.Common.Interfaces;
+using ExpenseManagement.Application.Features.Accounts;
 using ExpenseManagement.Application.Features.Categories;
 using ExpenseManagement.Domain.Entities;
 using ExpenseManagement.Domain.Exceptions;
@@ -108,7 +109,8 @@ public sealed class AuthService(
             throw Translate(roleAssigned, "registration_failed");
         }
 
-        db.UserSettings.Add(BuildSettings(user.Id, request));
+        var settings = BuildSettings(user.Id, request);
+        db.UserSettings.Add(settings);
 
         // Every user gets their own copy of the canonical set, so nothing they do
         // to a category can ever touch another account.
@@ -121,6 +123,24 @@ public sealed class AuthService(
             Color = template.Color,
             SortOrder = template.SortOrder,
             IsSystem = true,
+        }));
+
+        // One starter account, so the picker is never empty and a first expense
+        // lands somewhere real. Marked default because there is nothing to
+        // displace, and the partial unique index permits exactly one.
+        db.Accounts.AddRange(DefaultAccounts.All.Select(template => new Account
+        {
+            UserId = user.Id,
+            Name = template.Name,
+            Type = template.Type,
+            // The same currency the user just chose at sign-up, not a
+            // hardcoded default: an account stamped INR for someone who
+            // picked GBP would mis-state every balance it ever holds.
+            CurrencyCode = settings.CurrencyCode,
+            Icon = template.Icon,
+            Color = template.Color,
+            SortOrder = template.SortOrder,
+            IsDefault = template.SortOrder == 0,
         }));
 
         // The session is minted inside the transaction too: an account that exists

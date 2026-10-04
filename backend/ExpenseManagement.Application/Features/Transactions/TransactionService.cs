@@ -244,6 +244,11 @@ public sealed class TransactionService(
             query = query.Where(x => x.CategoryId == categoryId);
         }
 
+        if (request.AccountId is { } accountFilter)
+        {
+            query = query.Where(x => x.AccountId == accountFilter);
+        }
+
         if (request.Type is { } type)
         {
             query = query.Where(x => x.Type == type);
@@ -370,6 +375,42 @@ public sealed class TransactionService(
                 "category_type_mismatch");
         }
 
+        // An account, when named, decides the currency: money spent from a USD
+        // account is USD regardless of what the profile's default says. Checked
+        // before the request's own code so an explicit mismatch is refused
+        // rather than silently overridden.
+        if (request.AccountId is { } accountId)
+        {
+            var account = await db.Accounts
+                .AsNoTracking()
+                .Where(a => a.UserId == userId && a.Id == accountId)
+                .Select(a => new { a.Name, a.CurrencyCode, a.IsArchived })
+                .FirstOrDefaultAsync(cancellationToken)
+                ?? throw new NotFoundException("Account", accountId);
+
+            // Archived accounts are hidden from the pickers, so naming one means
+            // a stale client — and letting it through files spending against a
+            // pot the user believes is closed.
+            if (account.IsArchived)
+            {
+                throw new BusinessRuleException(
+                    $"\"{account.Name}\" is archived. Unarchive it to record against it.",
+                    "archived_account_transaction");
+            }
+
+            var requested = request.CurrencyCode?.Trim().ToUpperInvariant();
+
+            if (!string.IsNullOrEmpty(requested)
+                && !string.Equals(requested, account.CurrencyCode, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BusinessRuleException(
+                    $"\"{account.Name}\" is in {account.CurrencyCode}, so this entry cannot be in {requested}.",
+                    "account_currency_mismatch");
+            }
+
+            return account.CurrencyCode;
+        }
+
         if (!string.IsNullOrWhiteSpace(request.CurrencyCode))
         {
             return request.CurrencyCode.Trim().ToUpperInvariant();
@@ -405,6 +446,12 @@ public sealed class TransactionService(
         entity.Amount = Money.Round(request.Amount);
 
         entity.CategoryId = request.CategoryId;
+
+        // Null is preserved rather than defaulted. "I did not say which
+        // account" is a real answer, and quietly substituting the default one
+        // would attribute spending to a pot the user never chose.
+        entity.AccountId = request.AccountId;
+
         entity.CurrencyCode = currencyCode;
         entity.PaymentMethod = request.PaymentMethod;
 

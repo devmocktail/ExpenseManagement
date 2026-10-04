@@ -48,8 +48,10 @@ public class AppDbContext
         CurrentUserId = currentUser.UserId;
     }
 
+    public DbSet<Account> Accounts => Set<Account>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
+    public DbSet<Transfer> Transfers => Set<Transfer>();
     public DbSet<Budget> Budgets => Set<Budget>();
     public DbSet<RecurringTransaction> RecurringTransactions => Set<RecurringTransaction>();
     public DbSet<Receipt> Receipts => Set<Receipt>();

@@ -54,7 +54,11 @@ public sealed record TransactionDto(
     Guid? RecurringTransactionId,
     IReadOnlyList<ReceiptSummaryDto> Receipts,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? UpdatedAt);
+    DateTimeOffset? UpdatedAt,
+    Guid? AccountId = null,
+    string? AccountName = null,
+    string? AccountIcon = null,
+    string? AccountColor = null);
 
 /// <summary>
 /// The fields a create and an update have in common.
@@ -77,6 +81,17 @@ public interface ITransactionWriteRequest
 
     /// <summary>Null means "use the account currency"; it never means INR.</summary>
     string? CurrencyCode { get; }
+
+    /// <summary>
+    /// Which account the money came from or went into.
+    ///
+    /// Optional, and null is a real answer rather than a missing one: it means
+    /// "I did not say". The transaction still counts towards income, expenses
+    /// and budgets; it simply moves no account balance. Defaulting a null to
+    /// the user's default account would attribute spending to a pot they did
+    /// not pick, which is worse than leaving it unattributed.
+    /// </summary>
+    Guid? AccountId { get; }
 }
 
 /// <summary>A new transaction, optionally carrying an offline idempotency key.</summary>
@@ -94,7 +109,8 @@ public sealed record CreateTransactionRequest(
     string? Merchant = null,
     string? Notes = null,
     string? CurrencyCode = null,
-    string? ClientReference = null) : ITransactionWriteRequest;
+    string? ClientReference = null,
+    Guid? AccountId = null) : ITransactionWriteRequest;
 
 /// <summary>
 /// Deliberately carries no <c>ClientReference</c>: the key identifies the row,
@@ -110,7 +126,8 @@ public sealed record UpdateTransactionRequest(
     string? Description = null,
     string? Merchant = null,
     string? Notes = null,
-    string? CurrencyCode = null) : ITransactionWriteRequest;
+    string? CurrencyCode = null,
+    Guid? AccountId = null) : ITransactionWriteRequest;
 
 /// <summary>
 /// Filters for the transaction list. A class rather than a record because
@@ -132,6 +149,9 @@ public sealed class TransactionQueryRequest : PaginationRequest
     public string? Search { get; set; }
 
     public Guid? CategoryId { get; set; }
+
+    /// <summary>Restricts the list to one account.</summary>
+    public Guid? AccountId { get; set; }
 
     public TransactionType? Type { get; set; }
 

@@ -15,6 +15,19 @@ public class Transaction : UserOwnedEntity
     public Guid CategoryId { get; set; }
     public Category Category { get; set; } = null!;
 
+    /// <summary>
+    /// Which pot the money came from or went into.
+    ///
+    /// Nullable, and intentionally so. Every row written before accounts
+    /// existed has none, and inventing an account for them would attribute
+    /// spending to a balance the user never chose. An unassigned transaction
+    /// still counts towards income, expenses and budgets — it simply moves no
+    /// account balance, which is the honest answer when we do not know which
+    /// one it touched.
+    /// </summary>
+    public Guid? AccountId { get; set; }
+    public Account? Account { get; set; }
+
     public TransactionType Type { get; set; }
 
     /// <summary>Always a positive magnitude; direction is carried by <see cref="Type"/>.</summary>

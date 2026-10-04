@@ -1,4 +1,5 @@
 using System.Reflection;
+using ExpenseManagement.Application.Features.Accounts;
 using ExpenseManagement.Application.Features.Analytics;
 using ExpenseManagement.Application.Features.Auth;
 using ExpenseManagement.Application.Features.Budgets;
@@ -9,6 +10,7 @@ using ExpenseManagement.Application.Features.Profile;
 using ExpenseManagement.Application.Features.Receipts;
 using ExpenseManagement.Application.Features.Recurring;
 using ExpenseManagement.Application.Features.Transactions;
+using ExpenseManagement.Application.Features.Transfers;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,8 +25,10 @@ public static class DependencyInjection
         // one user's identity for the lifetime of the process — the single worst
         // bug this codebase could have.
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddScoped<ITransactionService, TransactionService>();
+        services.AddScoped<ITransferService, TransferService>();
         services.AddScoped<IBudgetService, BudgetService>();
         services.AddScoped<IAnalyticsService, AnalyticsService>();
         services.AddScoped<IDashboardService, DashboardService>();

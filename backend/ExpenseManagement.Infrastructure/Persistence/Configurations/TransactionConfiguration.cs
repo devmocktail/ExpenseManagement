@@ -69,6 +69,27 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
             .HasForeignKey(x => x.RecurringTransactionId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        // SetNull, for the same reason as the schedule above: an account the
+        // user stops using must not take its spending history with it. The row
+        // survives with no account, still counted in income, expenses and
+        // budgets, simply no longer moving any balance.
+        //
+        // In practice this rarely fires, because AccountService archives rather
+        // than deletes — but the database should not depend on the service
+        // remembering that.
+        builder.HasOne(x => x.Account)
+            .WithMany(a => a.Transactions)
+            .HasForeignKey(x => x.AccountId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Deriving an account's balance sums every transaction against it, and
+        // the transaction list can be filtered to one account. Leading with
+        // AccountId keeps both an index seek rather than a scan of the user's
+        // entire history filtered down afterwards.
+        builder.HasIndex(x => new { x.AccountId, x.TransactionDate })
+            .HasDatabaseName("IX_Transactions_AccountId_TransactionDate")
+            .IncludeProperties(x => new { x.Amount, x.Type, x.IsDeleted });
+
         // The workhorse index: the transaction list, the dashboard and every
         // analytics range scan all filter by user and order by date descending.
         // Covering the columns the list projects keeps it a pure index seek.
