@@ -1,5 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -32,6 +33,12 @@ export type TransferFormProps = {
   submitLabel: string;
   submitting: boolean;
   onSubmit: (values: TransferFormSubmit) => Promise<void>;
+  /**
+   * Rendered above the fields. The add screen passes the same three-way type
+   * toggle the transaction form shows, so switching back out of Transfer is in
+   * the place the user just came from rather than behind the back button.
+   */
+  header?: React.ReactNode;
 };
 
 /**
@@ -41,9 +48,10 @@ export type TransferFormProps = {
  * category, no payment method and no receipt, because none of those mean
  * anything for money that never left the user's own control.
  */
-export function TransferForm({ initial, submitLabel, submitting, onSubmit }: TransferFormProps) {
+export function TransferForm({ initial, submitLabel, submitting, onSubmit, header }: TransferFormProps) {
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
 
   const { data: accounts = [], isPending: accountsLoading } = useAccounts();
@@ -134,15 +142,25 @@ export function TransferForm({ initial, submitLabel, submitting, onSubmit }: Tra
 
   if (!accountsLoading && accounts.length < 2) {
     return (
-      <View style={[styles.empty, { padding: theme.spacing.xl, gap: theme.spacing.md }]}>
-        <MaterialCommunityIcons name="bank-outline" size={40} color={theme.c.textTertiary} />
-        <AppText variant="heading3" align="center">
-          You need two accounts
-        </AppText>
-        <AppText variant="bodySmall" color="textSecondary" align="center">
-          A transfer moves money between two of your own accounts. Add another one — a bank account
-          or a wallet — and you can move money into it.
-        </AppText>
+      <View style={{ flex: 1 }}>
+        {header ? <View style={{ padding: theme.spacing.base }}>{header}</View> : null}
+        <View style={[styles.empty, { padding: theme.spacing.xl, gap: theme.spacing.md }]}>
+          <MaterialCommunityIcons name="bank-outline" size={40} color={theme.c.textTertiary} />
+          <AppText variant="heading3" align="center">
+            You need two accounts
+          </AppText>
+          <AppText variant="bodySmall" color="textSecondary" align="center">
+            A transfer moves money between two of your own accounts. Add another one — a bank
+            account or a wallet — and you can move money into it.
+          </AppText>
+          {/* The dead end is the problem, not the message: without this the
+              user is told what they need and given no way to get it. */}
+          <AppButton
+            label="Add an account"
+            variant="secondary"
+            onPress={() => router.push('/accounts/new')}
+          />
+        </View>
       </View>
     );
   }
@@ -160,6 +178,8 @@ export function TransferForm({ initial, submitLabel, submitting, onSubmit }: Tra
         }}
         keyboardShouldPersistTaps="handled"
       >
+        {header}
+
         <Controller
           control={control}
           name="amount"
@@ -168,9 +188,11 @@ export function TransferForm({ initial, submitLabel, submitting, onSubmit }: Tra
               value={field.value}
               onChangeText={field.onChange}
               // The control needs a direction to colour itself. A transfer has
-              // none, so it borrows the expense styling; nothing downstream
-              // reads this, and the row and totals both treat it as neither.
+              // none, so it borrows the neutral expense styling - but the
+              // caption is overridden, because "Expense amount" above a
+              // transfer says the one thing this feature exists to deny.
               type="Expense"
+              label="Transfer amount"
               currencyCode={from?.currencyCode}
               error={errors.amount?.message}
             />

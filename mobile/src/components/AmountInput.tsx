@@ -10,6 +10,14 @@ export type AmountInputProps = {
   value: string;
   onChangeText: (value: string) => void;
   type: TransactionType;
+  /**
+   * Overrides the caption and the accent colour's direction.
+   *
+   * A transfer is neither an expense nor an income, so it has no TransactionType
+   * to pass — and labelling its amount "Expense amount" told the user the exact
+   * thing the feature exists to deny.
+   */
+  label?: string;
   currencyCode?: string;
   error?: string;
   autoFocus?: boolean;
@@ -32,6 +40,7 @@ export function AmountInput({
   value,
   onChangeText,
   type,
+  label,
   currencyCode,
   error,
   autoFocus = true,
@@ -75,11 +84,11 @@ export function AmountInput({
     <Pressable
       onPress={() => inputRef.current?.focus()}
       accessibilityLabel={`Amount in ${currencyCode ?? userCurrency}`}
-      accessibilityHint="Enter the amount for this transaction"
+      accessibilityHint={`Enter the ${(label ?? 'amount').toLowerCase()}`}
       style={styles.container}
     >
       <AppText variant="caption" color="textSecondary">
-        {type === 'Income' ? 'Income amount' : 'Expense amount'}
+        {label ?? (type === 'Income' ? 'Income amount' : 'Expense amount')}
       </AppText>
 
       <View style={[styles.row, { marginTop: theme.spacing.sm }]}>

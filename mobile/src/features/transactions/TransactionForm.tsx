@@ -44,6 +44,16 @@ export type TransactionFormProps = {
   onSubmit: (values: TransactionFormSubmit) => Promise<void>;
   /** Only offered when editing — a receipt needs a transaction to attach to. */
   transactionIdForReceipts?: string;
+  /**
+   * When provided, the type toggle gains a third "Transfer" segment that calls
+   * this instead of changing the form's own type.
+   *
+   * A transfer is not a TransactionType and never becomes one — it posts to a
+   * different endpoint and is excluded from every total here. The segment is
+   * shared only because that is where people look for it: hiding the entry
+   * point on another screen is what made it unfindable.
+   */
+  onSelectTransfer?: () => void;
 };
 
 /**
@@ -61,6 +71,7 @@ export function TransactionForm({
   submitting,
   onSubmit,
   transactionIdForReceipts,
+  onSelectTransfer,
 }: TransactionFormProps) {
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
@@ -169,6 +180,11 @@ export function TransactionForm({
             <SegmentedControl
               value={value}
               onChange={(next) => {
+                if (next === 'Transfer') {
+                  onSelectTransfer?.();
+                  return;
+                }
+
                 onChange(next);
                 // Categories are scoped to a direction, so a category chosen for
                 // an expense is not valid for income. Clearing it here prevents
@@ -178,6 +194,7 @@ export function TransactionForm({
               options={[
                 { value: 'Expense', label: 'Expense' },
                 { value: 'Income', label: 'Income' },
+                ...(onSelectTransfer ? [{ value: 'Transfer', label: 'Transfer' }] : []),
               ]}
             />
           )}
