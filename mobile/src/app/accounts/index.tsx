@@ -8,6 +8,7 @@ import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { ListSkeleton } from '@/components/ui/Skeleton';
 import { AppEmptyState, AppErrorState } from '@/components/ui/StateViews';
 import { useAccounts } from '@/features/accounts/hooks';
+import { computeNetWorth, groupAccounts } from '@/features/accounts/summary';
 import { useAppTheme } from '@/theme/ThemeProvider';
 import type { Account } from '@/types/api';
 import { formatCurrency } from '@/utils/currency';
@@ -29,21 +30,10 @@ export default function AccountsScreen() {
   const active = useMemo(() => accounts.filter((a) => !a.isArchived), [accounts]);
   const archived = useMemo(() => accounts.filter((a) => a.isArchived), [accounts]);
 
-  /**
-   * Summed only across accounts sharing one currency.
-   *
-   * Adding a USD balance to an INR one would produce a number that means
-   * nothing, so a mixed set shows no total rather than a confident wrong one.
-   */
-  const total = useMemo(() => {
-    if (active.length === 0) return null;
-    const currencies = new Set(active.map((a) => a.currencyCode));
-    if (currencies.size !== 1) return null;
-    return {
-      amount: active.reduce((sum, a) => sum + a.balance, 0),
-      currencyCode: active[0].currencyCode,
-    };
-  }, [active]);
+  // Archived accounts are excluded from both: they are kept so history stays
+  // intact, not because the user still holds that money.
+  const netWorth = useMemo(() => computeNetWorth(active), [active]);
+  const groups = useMemo(() => groupAccounts(active), [active]);
 
   return (
     <View style={[styles.flex, { backgroundColor: theme.c.background }]}>
@@ -93,26 +83,56 @@ export default function AccountsScreen() {
             />
           }
         >
-          {total ? (
+          {netWorth ? (
             <AppCard>
-              <AppText variant="caption" color="textSecondary">
-                Across all accounts
-              </AppText>
-              <AppText variant="heading1" style={{ marginTop: 4 }}>
-                {formatCurrency(total.amount, total.currencyCode)}
-              </AppText>
+              <View style={styles.netWorthRow}>
+                <NetWorthFigure
+                  label="Assets"
+                  amount={netWorth.assets}
+                  currencyCode={netWorth.currencyCode}
+                  color={theme.c.income}
+                />
+                <NetWorthFigure
+                  label="Liabilities"
+                  amount={netWorth.liabilities}
+                  currencyCode={netWorth.currencyCode}
+                  color={theme.c.error}
+                />
+                <NetWorthFigure
+                  label="Total"
+                  amount={netWorth.total}
+                  currencyCode={netWorth.currencyCode}
+                  // Neutral unless the user is actually underwater, where the
+                  // number is the one thing on the screen worth noticing.
+                  color={netWorth.total < 0 ? theme.c.error : theme.c.textPrimary}
+                  emphasis
+                />
+              </View>
             </AppCard>
           ) : null}
 
-          <View style={{ gap: theme.spacing.sm }}>
-            {active.map((account) => (
-              <AccountCard
-                key={account.id}
-                account={account}
-                onPress={() => router.push(`/accounts/${account.id}`)}
-              />
-            ))}
-          </View>
+          {groups.map((group) => (
+            <View key={group.type} style={{ gap: theme.spacing.sm }}>
+              <View style={styles.groupHeader}>
+                <AppText variant="overline" color="textSecondary">
+                  {group.label.toUpperCase()}
+                </AppText>
+                {group.subtotal ? (
+                  <AppText variant="bodySmallStrong" color="textSecondary">
+                    {formatCurrency(group.subtotal.amount, group.subtotal.currencyCode)}
+                  </AppText>
+                ) : null}
+              </View>
+
+              {group.accounts.map((account) => (
+                <AccountCard
+                  key={account.id}
+                  account={account}
+                  onPress={() => router.push(`/accounts/${account.id}`)}
+                />
+              ))}
+            </View>
+          ))}
 
           {archived.length > 0 ? (
             <View style={{ gap: theme.spacing.sm }}>
@@ -130,6 +150,41 @@ export default function AccountsScreen() {
           ) : null}
         </ScrollView>
       )}
+    </View>
+  );
+}
+
+function NetWorthFigure({
+  label,
+  amount,
+  currencyCode,
+  color,
+  emphasis = false,
+}: {
+  label: string;
+  amount: number;
+  currencyCode: string;
+  color: string;
+  emphasis?: boolean;
+}) {
+  const theme = useAppTheme();
+
+  return (
+    <View style={styles.netWorthCell}>
+      <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+        {label}
+      </AppText>
+      <AppText
+        variant={emphasis ? 'bodyStrong' : 'body'}
+        numberOfLines={1}
+        // Shrinks rather than wraps or clips: six-figure balances are ordinary
+        // here, and three of them share one row on a 360pt phone.
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+        style={{ color, marginTop: 2 }}
+      >
+        {formatCurrency(amount, currencyCode)}
+      </AppText>
     </View>
   );
 }
@@ -213,6 +268,23 @@ function AccountCard({ account, onPress }: { account: Account; onPress: () => vo
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  netWorthRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  netWorthCell: {
+    flex: 1,
+    // flexShrink lets a long figure compress instead of pushing its neighbour
+    // off the card, which is what happens when three currency strings share a
+    // fixed row.
+    flexShrink: 1,
+    paddingRight: 8,
+  },
+  groupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
